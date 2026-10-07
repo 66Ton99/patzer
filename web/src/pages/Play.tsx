@@ -17,6 +17,7 @@ import { api } from '../api';
 import { ReconnectingSocket, type SocketLike } from '../lib/reconnectingSocket';
 import { soundForMove, inferMoveFlagsFromSan, playSound } from '../lib/sounds';
 import type { Difficulty, Classification } from '../types';
+import { parseFromPosition } from '../lib/fromPosition';
 
 const DIFFICULTIES: Difficulty[] = ['kid','beginner','easy','medium','hard','master','stockfish'];
 const TIME_CONTROLS = ['untimed','bullet','blitz','rapid','classical'] as const;
@@ -107,6 +108,8 @@ interface ServerMsg {
   you?: { user_id: number; display_name: string };
   time_control?: string;
   history?: string[];
+  /** Bot game from a position: the FEN it started from. */
+  start_fen?: string | null;
   turn?: 'w' | 'b';
   // preview_result fields
   ok?: boolean;
@@ -143,6 +146,7 @@ export default function Play() {
   const nav = useNavigate();
   const [params] = useSearchParams();
   const pvpGameId = Number(params.get('game') ?? 0) || null;
+  const fromPos = useMemo(() => parseFromPosition(params.get('fen'), params.get('moves')), [params]);
 
   const [phase, setPhase] = useState<'setup' | 'playing' | 'over'>('setup');
   const [setupTab, setSetupTab] = useState<'bot' | 'friend'>('bot');
@@ -338,10 +342,19 @@ export default function Play() {
   };
 
   function startBot() {
-    const finalColor = color === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : color;
+    const finalColor = fromPos ? fromPos.color : color === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : color;
     setUserColor(finalColor);
+    userColorRef.current = finalColor;
     resetGameState();
     setPhase('playing');
+    if (fromPos) {
+      socket().connect(
+        wsUrl(null),
+        { type: 'new_game', difficulty, time_control: tc, fen: fromPos.fen, moves: fromPos.moves },
+        { type: 'resume' },
+      );
+      return;
+    }
     // Opening means "new game"; every reconnection after it means "resume" —
     // otherwise coming back from a locked phone would wipe the game and deal a
     // fresh one, which is the bug with extra steps.
@@ -395,9 +408,10 @@ export default function Play() {
 
   /** Rebuild the per-ply position list + move list from a SAN history. Used
    *  on (re)connect and after an accepted takeback. */
-  function loadHistory(history: string[] | undefined, startFen: string) {
+  function loadHistory(history: string[] | undefined, startFen: string, from?: string | null) {
     if (history && history.length > 0) {
-      const replay = new Chess();
+      // A game from a position replays from where it started.
+      const replay = new Chess(from ?? undefined);
       const positionsFromHistory: Position[] = [{ fen: replay.fen() }];
       const movesFromHistory: Move[] = [];
       for (let i = 0; i < history.length; i++) {
@@ -438,7 +452,7 @@ export default function Play() {
         if (msg.time_control) setTc(msg.time_control as typeof TIME_CONTROLS[number]);
         if (msg.your_color) userColorRef.current = msg.your_color;
         // Rebuild the position list from the SAN history (PvP reconnect can land mid-game).
-        loadHistory(msg.history, startFen);
+        loadHistory(msg.history, startFen, msg.start_fen);
         setDrawOffer(mine(msg.draw_offer ?? undefined));
         setTakeback(mine(msg.takeback_request ?? undefined));
         if (!alreadyOver) playSound('game_start');
@@ -825,6 +839,19 @@ export default function Play() {
           <TabButton active={setupTab === 'friend'} onClick={() => setSetupTab('friend')} icon={UsersIcon}>{t('play.tabFriend')}</TabButton>
         </div>
 
+        {setupTab === 'bot' && fromPos && (
+          <div className="card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:p-5">
+            <div className={`w-40 shrink-0 self-center board-theme-${user?.profile.board_theme ?? 'green'}`}>
+              <ChessBoard fen={fromPos.at} orientation={fromPos.color} movable={false} />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="text-sm font-semibold">{t('play.fromPosition.title')}</div>
+              <p className="text-xs text-chesscom-500">{t('play.fromPosition.desc', { color: t(`play.${fromPos.color}`) })}</p>
+              <button onClick={() => nav('/play')} className="btn-ghost px-0 text-xs text-chesscom-500">{t('play.fromPosition.normal')}</button>
+            </div>
+          </div>
+        )}
+
         {setupTab === 'bot' && (
           <div className="card space-y-6 p-5 sm:p-6">
             <div>
@@ -842,14 +869,14 @@ export default function Play() {
                 ))}
               </div>
             </div>
-            <div>
+            {!fromPos && <div>
               <div className="label mb-2">{t('play.color')}</div>
               <div className="grid grid-cols-3 gap-2">
                 {(['white','random','black'] as const).map((c) => (
                   <button key={c} onClick={() => setColor(c)} className={`btn ${color === c ? 'btn-primary' : 'btn-secondary'}`}>{t(`play.${c}`)}</button>
                 ))}
               </div>
-            </div>
+            </div>}
             <div>
               <div className="label mb-2">{t('play.timeControl')}</div>
               <div className="flex flex-wrap gap-2">

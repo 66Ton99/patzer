@@ -166,7 +166,12 @@
       "discard": "Discard"
     },
     "reconnecting": "Reconnecting… your game is saved.",
-    "subtitle": "Pick a bot or challenge a friend."
+    "subtitle": "Pick a bot or challenge a friend.",
+    "fromPosition": {
+      "title": "Play from this position",
+      "desc": "You play: {{color}}. Look for the better move. The game is saved, unrated, and kept out of your opening and Insights statistics.",
+      "normal": "Start a normal game instead"
+    }
   },
   "review": {
     "title": "Game Review",
@@ -279,9 +284,11 @@
       "inaccuracy": "An inaccuracy: the win chance dropped by {{drop}}% ({{before}}% → {{after}}%), about {{pawns}} pawns. Not a disaster, but there was a clearly better move.",
       "mistake": "A mistake: the win chance dropped by {{drop}}% ({{before}}% → {{after}}%), about {{pawns}} pawns — a real chunk of the advantage went away.",
       "blunder": "A blunder: the win chance collapsed by {{drop}}% ({{before}}% → {{after}}%), about {{pawns}} pawns. This kind of move usually loses material or allows a decisive attack.",
-      "miss": "A miss: the position was winning ({{before}}% win chance) and this move let the win slip ({{after}}%). There was a much stronger move on the board."
+      "miss": "A miss: the position was winning ({{before}}% win chance) and this move let the win slip ({{after}}%). There was a much stronger move on the board.",
+      "playFromHere": "Play from here against Patzer"
     },
-    "regenerateReport": "Write it again"
+    "regenerateReport": "Write it again",
+    "fromPosition": "from a position"
   },
   "classification": {
     "brilliant": "Brilliant",

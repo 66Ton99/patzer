@@ -17,6 +17,7 @@ import { chatStream, llmConfigured } from '../coach/llm.js';
 import { coachExplain } from '../coach/explain.js';
 import type { AuthedUser, Difficulty, Classification } from '../types.js';
 import { notifyUser } from './lobby.js';
+import { startFromPosition, startFenOf } from '../chess/startFen.js';
 
 // `Skill Level` alone produces tiers that don't match their labels — at
 // `Skill 3 / depth 4`, "Beginner" already plays around 1400 Elo, so a
@@ -82,6 +83,8 @@ interface BotSession {
   blackTimeMs: number;
   lastMoveAt: number;
   saved: boolean;
+  /** Set when the game started from a position rather than the opening. */
+  startFen: string | null;
 }
 
 // ---- PVP SESSION ----
@@ -316,7 +319,14 @@ async function handleBotConnection(ws: WebSocket, user: AuthedUser) {
           if (session.analysisEngine) session.analysisEngine.quit().catch(() => { /* ignore */ });
         }
         const difficulty = (msg.difficulty as Difficulty) ?? 'medium';
-        const userColor = (msg.color as 'white' | 'black') ?? 'white';
+        // From a position: you play the side to move — the point is to find
+        // the better move there yourself.
+        const fromPosition = msg.fen === undefined ? null : startFromPosition(msg.fen, msg.moves ?? []);
+        if (msg.fen !== undefined && !fromPosition) { send(ws, 'error', { message: 'invalid position' }); return; }
+        const startFen = fromPosition ? new Chess(msg.fen as string).fen() : null;
+        const userColor = fromPosition
+          ? (fromPosition.turn() === 'w' ? 'white' : 'black')
+          : (msg.color as 'white' | 'black') ?? 'white';
         const tcKey = (msg.time_control as string) ?? 'untimed';
         const tc = TIME_CONTROLS[tcKey] ?? null;
 
@@ -330,7 +340,7 @@ async function handleBotConnection(ws: WebSocket, user: AuthedUser) {
 
         session = {
           kind: 'bot', user,
-          chess: new Chess(), engine, analysisEngine: null, analysisQueue: Promise.resolve(),
+          chess: fromPosition ?? new Chess(), engine, analysisEngine: null, analysisQueue: Promise.resolve(),
           difficulty, userColor,
           tcKey,
           timeControl: tc,
@@ -338,7 +348,12 @@ async function handleBotConnection(ws: WebSocket, user: AuthedUser) {
           blackTimeMs: tc?.initial ?? 0,
           lastMoveAt: Date.now(),
           saved: false,
+          startFen,
         };
+        // Spelled out even for the normal start position (a black move at ply
+        // 1 starts from there): the headers are what a resumed game, the
+        // analyzer and Game Review read the start from.
+        if (startFen) { session.chess.header('SetUp', '1'); session.chess.header('FEN', startFen); }
         // Starting a game replaces whatever was in progress — you only get one.
         snapshot(session);
 
@@ -346,9 +361,11 @@ async function handleBotConnection(ws: WebSocket, user: AuthedUser) {
           fen: session.chess.fen(), turn: session.chess.turn(),
           difficulty, userColor, time_control: tcKey,
           whiteTimeMs: session.whiteTimeMs, blackTimeMs: session.blackTimeMs,
+          start_fen: startFen,
+          history: session.chess.history(),
         });
 
-        if (userColor === 'black') await playBotMove(ws, session);
+        if (session.chess.turn() !== userColor[0]) await playBotMove(ws, session);
       } else if (type === 'resume') {
         const row = loadLiveBotGame(user.id);
         if (!row) { send(ws, 'resume_failed', { message: 'no_game' }); return; }
@@ -402,6 +419,7 @@ async function handleBotConnection(ws: WebSocket, user: AuthedUser) {
           blackTimeMs: row.black_time_ms ?? tc?.initial ?? 0,
           lastMoveAt: Date.now(),
           saved: false,
+          startFen: startFenOf(chess) ?? null,
         };
         snapshot(session);
 
@@ -410,6 +428,7 @@ async function handleBotConnection(ws: WebSocket, user: AuthedUser) {
           difficulty, userColor: session.userColor, time_control: tcKey,
           whiteTimeMs: session.whiteTimeMs, blackTimeMs: session.blackTimeMs,
           history: session.chess.history(),
+          start_fen: session.startFen,
           resumed: true,
         });
 
@@ -602,7 +621,7 @@ async function endBotGame(ws: WebSocket, session: BotSession, result: '1-0' | '0
   const white = session.userColor === 'white' ? session.user.profile.display_name : `Stockfish (${session.difficulty})`;
   const black = session.userColor === 'black' ? session.user.profile.display_name : `Stockfish (${session.difficulty})`;
 
-  session.chess.header('Event', 'Local game vs bot');
+  session.chess.header('Event', session.startFen ? 'Local game vs bot, from a position' : 'Local game vs bot');
   session.chess.header('White', white);
   session.chess.header('Black', black);
   session.chess.header('Result', result);
@@ -614,8 +633,8 @@ async function endBotGame(ws: WebSocket, session: BotSession, result: '1-0' | '0
     : 'untimed';
   const tcClass = classifyTimeControl(tcString);
   const r = db.prepare(`
-    INSERT INTO games (user_id, source, external_id, pgn, white, black, result, time_control, end_time, user_color, rated, time_class)
-    VALUES (?, 'played', ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+    INSERT INTO games (user_id, source, external_id, pgn, white, black, result, time_control, end_time, user_color, rated, time_class, start_fen)
+    VALUES (?, 'played', ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
   `).run(
     userId,
     `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -626,6 +645,7 @@ async function endBotGame(ws: WebSocket, session: BotSession, result: '1-0' | '0
     new Date().toISOString(),
     session.userColor,
     tcClass,
+    session.startFen,
   );
   const gameId = Number(r.lastInsertRowid);
   // Saved first, announced second, with the id on the announcement: the page

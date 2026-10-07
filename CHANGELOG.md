@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Play from here (roadmap #13).** In Game Review, your own inaccuracy,
+  mistake, blunder or miss now has a "Play from here against Patzer" button:
+  it opens Play with that position, you pick the bot's strength and the clock,
+  and try the better move for real. The game is saved like any bot game —
+  unrated, marked "from a position" in Game Review, and kept out of the
+  opening tree, the opening trainer's repertoire and Insights (`games.start_fen`).
+  A game from a position always starts with white to move, so for a black
+  move it starts one move earlier and Patzer first replays your opponent's
+  move from the game.
+
 ## [7.18.1] — 2026-10-05
 
 ### Moves land the instant you drop them

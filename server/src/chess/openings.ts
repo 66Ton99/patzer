@@ -202,6 +202,8 @@ export function lookupOpeningFromPgn(pgn: string): { eco: string; name: string; 
   const map = ensureMap();
   const chess = new Chess();
   try { chess.loadPgn(pgn, { strict: false }); } catch { return null; }
+  // A game from a position never had an opening.
+  if (chess.getHeaders().SetUp === '1') return null;
   const history = chess.history({ verbose: true });
   const replay = new Chess();
   // Try the empty-line first (covers "starting position"), then walk forward.

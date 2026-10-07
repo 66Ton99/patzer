@@ -6,8 +6,11 @@
 // would have achieved.
 
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import { Swords } from 'lucide-react';
 import { CLASS_STYLE, GLYPH_SVG } from '../lib/classification';
 import CoachPanel from './CoachPanel';
+import { playFromUrl } from '../lib/fromPosition';
 import type { AnalyzedMove } from '../types';
 
 /** Lichess win-chance curve (same as the server's cpToWinPct), 0..100 for White. */
@@ -33,9 +36,15 @@ interface Props {
   userColor: 'white' | 'black' | null;
   coachConfigured: boolean;
   coachRequest: (() => { url: string; body: Record<string, unknown> }) | null;
+  /** The position before this move. Your own slip gets a "play from here"
+   *  link: try the better move against Patzer, from exactly there. */
+  playFrom?: { fen: string; moves: string[] };
 }
 
-export default function MoveExplanation({ move, userColor, coachConfigured, coachRequest }: Props) {
+// Labels worth replaying the position for.
+const REPLAY = new Set(['inaccuracy', 'mistake', 'blunder', 'miss']);
+
+export default function MoveExplanation({ move, userColor, coachConfigured, coachRequest, playFrom }: Props) {
   const { t } = useTranslation();
   const s = CLASS_STYLE[move.classification];
   const side = move.ply % 2 === 1 ? 'white' : 'black';
@@ -77,6 +86,12 @@ export default function MoveExplanation({ move, userColor, coachConfigured, coac
             <div className="mt-0.5 font-mono text-[11px] text-chesscom-500">{t('review.why.line')}: {line}</div>
           )}
         </div>
+      )}
+
+      {playFrom && side === userColor && REPLAY.has(move.classification) && (
+        <Link to={playFromUrl(playFrom)} className="btn-secondary mt-2 w-full text-xs">
+          <Swords className="h-3.5 w-3.5" /> {t('review.why.playFromHere')}
+        </Link>
       )}
 
       <div className="mt-3 border-t border-chesscom-200 pt-2 dark:border-chesscom-700">
