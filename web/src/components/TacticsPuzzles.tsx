@@ -2,16 +2,20 @@
 // ship with Patzer, picked close to your puzzle rating. Like on chess.com: the
 // first try counts — a wrong move or a hint and the puzzle is lost for the
 // rating, but you can still find the rest of the solution.
+//
+// With ?daily=1 (the Home card) it shows the puzzle of the day instead: the
+// same puzzle all day, and a streak of the days in a row you did it.
 
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Check, Eye, Lightbulb, RotateCcw, Trophy, TrendingDown, TrendingUp, X, Zap } from 'lucide-react';
+import { ArrowRight, Check, Eye, Flame, Lightbulb, RotateCcw, Trophy, TrendingDown, TrendingUp, X, Zap } from 'lucide-react';
 import ChessBoard from './ChessBoard';
 import { api } from '../api';
 import { useAuth } from '../state/auth';
 import { soundForMove, inferMoveFlagsFromSan } from '../lib/sounds';
 import { isRightMove, playerOf, positionAt, sanAt, type TacticsPuzzle } from '../lib/tactics';
+import { localDay } from '../lib/openingTrainer';
 
 interface Stats {
   rating: number;
@@ -22,27 +26,65 @@ interface Stats {
   recent: { solved: boolean; rating: number }[];
   total: number;
 }
-interface Attempt { rated: boolean; rating_before: number; rating_after: number }
+interface Attempt { rated: boolean; rating_before: number; rating_after: number; streak?: number }
+interface Daily { day: string; puzzle: TacticsPuzzle | null; done: { solved: boolean } | null; streak: number }
 
 const THEMES = ['mate', 'fork', 'pin', 'discovered', 'sacrifice', 'hanging', 'defence', 'endgame'] as const;
 const STATS_KEY = ['tactics-stats'];
+/** The Home card's query — refreshed once the puzzle of the day is done. */
+const DAILY_KEY = ['tactics-daily'];
 
 // 'play': your move; 'wrong': a wrong try, the board went back; 'solved': the
 // line is done; 'shown': "show me" played the rest for you.
 type Status = 'play' | 'wrong' | 'solved' | 'shown';
 
-export default function TacticsPuzzles() {
+export default function TacticsPuzzles({ daily = false, onLeaveDaily }: { daily?: boolean; onLeaveDaily?: () => void }) {
   const { t } = useTranslation();
   const [theme, setTheme] = useState<string | null>(null);
   const [run, setRun] = useState(0);
   const { data: stats } = useQuery({ queryKey: STATS_KEY, queryFn: () => api.get<Stats>('/api/tactics/stats') });
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['tactics-next', theme, run],
-    queryFn: () => api.get<{ puzzle: TacticsPuzzle | null }>(`/api/tactics/next${theme ? `?theme=${theme}` : ''}`),
+  const { data: today } = useQuery({
+    queryKey: ['tactics-daily-play', run],
+    queryFn: () => api.get<Daily>(`/api/tactics/daily?today=${localDay()}`),
+    enabled: daily,
     staleTime: Infinity,
     gcTime: 0,
     refetchOnWindowFocus: false,
   });
+  const { data: next, isLoading, isError } = useQuery({
+    queryKey: ['tactics-next', theme, run],
+    queryFn: () => api.get<{ puzzle: TacticsPuzzle | null }>(`/api/tactics/next${theme ? `?theme=${theme}` : ''}`),
+    enabled: !daily,
+    staleTime: Infinity,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+  });
+  const data = daily ? today : next;
+  const loading = daily ? !today : isLoading;
+
+  if (daily && today) {
+    return (
+      <div className="space-y-3">
+        <div className="card flex flex-wrap items-center justify-between gap-2 p-3">
+          <div className="text-sm font-semibold text-chesscom-900 dark:text-chesscom-100">{t('train.puzzles.daily.title')}</div>
+          <div className="flex items-center gap-3 text-xs text-chesscom-500">
+            {today.streak > 0 && <span className="flex items-center gap-1"><Flame className="h-3.5 w-3.5 text-gold-600" />{t('home.dailyStreak', { count: today.streak })}</span>}
+            <button onClick={onLeaveDaily} className="underline-offset-2 hover:underline">{t('train.puzzles.daily.more')}</button>
+          </div>
+        </div>
+        {today.done && <div className="px-1 text-xs text-chesscom-500">{t('train.puzzles.daily.already')}</div>}
+        {!today.puzzle && (
+          <div className="card flex flex-col items-center gap-2 p-10 text-center">
+            <Trophy className="h-8 w-8 text-gold-500" />
+            <div className="text-base font-semibold">{t('train.puzzles.allDone')}</div>
+          </div>
+        )}
+        {today.puzzle && (
+          <Puzzle key={`${today.puzzle.id}-${run}`} puzzle={today.puzzle} stats={stats ?? null} daily={today.day} onNext={() => onLeaveDaily?.()} />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -53,8 +95,8 @@ export default function TacticsPuzzles() {
         ))}
       </div>
 
-      {isLoading && <div className="card p-10 text-center text-sm text-chesscom-500">{t('common.loading')}</div>}
-      {isError && <div className="card p-10 text-center text-sm text-move-mistake">{t('train.puzzles.loadError')}</div>}
+      {loading && <div className="card p-10 text-center text-sm text-chesscom-500">{t('common.loading')}</div>}
+      {!daily && isError && <div className="card p-10 text-center text-sm text-move-mistake">{t('train.puzzles.loadError')}</div>}
       {data && !data.puzzle && (
         <div className="card flex flex-col items-center gap-2 p-10 text-center">
           <Trophy className="h-8 w-8 text-gold-500" />
@@ -84,7 +126,7 @@ function ThemeChip({ active, onClick, label }: { active: boolean; onClick: () =>
   );
 }
 
-function Puzzle({ puzzle, stats, onNext }: { puzzle: TacticsPuzzle; stats: Stats | null; onNext: () => void }) {
+function Puzzle({ puzzle, stats, daily, onNext }: { puzzle: TacticsPuzzle; stats: Stats | null; daily?: string; onNext: () => void }) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -104,8 +146,12 @@ function Puzzle({ puzzle, stats, onNext }: { puzzle: TacticsPuzzle; stats: Stats
   const yourTurn = !done && n % 2 === 1 && (status === 'play' || status === 'wrong');
 
   function send(solved: boolean) {
-    api.post<Attempt>('/api/tactics/attempt', { id: puzzle.id, solved })
-      .then((r) => { setResult(r); void qc.invalidateQueries({ queryKey: STATS_KEY }); })
+    api.post<Attempt>('/api/tactics/attempt', { id: puzzle.id, solved, ...(daily ? { daily } : {}) })
+      .then((r) => {
+        setResult(r);
+        void qc.invalidateQueries({ queryKey: STATS_KEY });
+        if (daily) void qc.invalidateQueries({ queryKey: DAILY_KEY });
+      })
       .catch(() => { /* the puzzle goes on; the rating just didn't change */ });
   }
   function lose() {
@@ -233,6 +279,11 @@ function Puzzle({ puzzle, stats, onNext }: { puzzle: TacticsPuzzle; stats: Stats
             </div>
           )}
           {!clean && !finished && status !== 'shown' && <div className="mt-1 text-xs text-chesscom-500">{t('train.puzzles.notRated')}</div>}
+          {daily && finished && result?.streak !== undefined && result.streak > 0 && (
+            <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-gold-700 dark:text-gold-400">
+              <Flame className="h-3.5 w-3.5" /> {t('home.dailyStreak', { count: result.streak })}
+            </div>
+          )}
 
           {!finished && status !== 'shown' && n > 0 && (
             <div className="mt-3 flex gap-2">
@@ -252,7 +303,7 @@ function Puzzle({ puzzle, stats, onNext }: { puzzle: TacticsPuzzle; stats: Stats
                 </button>
               )}
               <button onClick={onNext} disabled={!done} className="btn-primary flex-1 text-sm">
-                {t('train.puzzles.next')} <ArrowRight className="h-4 w-4" />
+                {daily ? t('train.puzzles.daily.more') : t('train.puzzles.next')} <ArrowRight className="h-4 w-4" />
               </button>
             </div>
           )}

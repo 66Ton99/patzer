@@ -59,7 +59,10 @@ export default function Train() {
             <h1 className="page-h1 flex items-center gap-2"><Zap className="h-6 w-6 text-gold-600" />{t('train.tabs.puzzles')}</h1>
             <p className="page-sub">{t('train.puzzles.intro')}</p>
           </header>
-          <TacticsPuzzles />
+          <TacticsPuzzles
+            daily={params.get('daily') === '1'}
+            onLeaveDaily={() => setParams({ tab: 'puzzles' }, { replace: true })}
+          />
           <footer className="pt-2 text-center text-xs text-chesscom-400">
             {t('train.puzzles.credit')}{' '}
             <a href="https://database.lichess.org/#puzzles" target="_blank" rel="noreferrer noopener" className="underline underline-offset-2 hover:text-chesscom-600 dark:hover:text-chesscom-200">database.lichess.org</a>

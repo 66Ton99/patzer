@@ -591,8 +591,6 @@
     "statStreak": "Racha",
     "acrossAnalyzed": "en partidas analizadas",
     "todayPuzzle": "Problema del día",
-    "todayPuzzleTitle": "Jugaste {{san}}. Encuentra una jugada mejor.",
-    "fromGame": "De tu partida contra {{opp}}",
     "topOpening": "Tu apertura principal",
     "recentGames": "Partidas recientes",
     "viewAll": "Ver todas →",

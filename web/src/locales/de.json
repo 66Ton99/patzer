@@ -650,6 +650,11 @@
         "hanging": "Hängende & gefangene Figuren",
         "defence": "Verteidigung",
         "endgame": "Endspiel"
+      },
+      "daily": {
+        "title": "Aufgabe des Tages",
+        "more": "Weitere Aufgaben",
+        "already": "Die hast du heute schon gemacht – nochmal lösen ändert weder Wertung noch Serie."
       }
     }
   },
@@ -1055,8 +1060,12 @@
     "statStreak": "Serie",
     "acrossAnalyzed": "über alle analysierten Partien",
     "todayPuzzle": "Aufgabe des Tages",
-    "todayPuzzleTitle": "Du hast {{san}} gespielt. Finde einen stärkeren Zug.",
-    "fromGame": "Aus deiner Partie gegen {{opp}}",
+    "dailyOpen": "Eine neue Aufgabe wartet",
+    "dailySolved": "Gelöst – bis morgen!",
+    "dailyDone": "Erledigt – morgen kommt die nächste",
+    "dailyStreak_one": "{{count}} Tag in Folge",
+    "dailyStreak_other": "{{count}} Tage in Folge",
+    "dailyStart": "Jeden Tag eine – so beginnt deine Serie",
     "topOpening": "Deine häufigste Eröffnung",
     "recentGames": "Letzte Partien",
     "viewAll": "Alle anzeigen →",
@@ -1079,8 +1088,6 @@
       "loss": "Niederlagenserie",
       "draw": "Remisserie"
     },
-    "puzzleEmpty": "Noch keine Aufgaben — spiel ein paar Partien",
-    "puzzleEmptyDesc": "Die Aufgaben entstehen aus deinen eigenen analysierten Patzern.",
     "unreviewed": "nicht analysiert",
     "learnNext": "Deine nächste Lektion",
     "learnResume": "Mach weiter, wo du aufgehört hast",

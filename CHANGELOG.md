@@ -4,6 +4,24 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Puzzle of the day, with a streak (roadmap #12).** The "Today's puzzle"
+  card on Home is now one puzzle from the Lichess set, picked near your puzzle
+  rating — the same puzzle all day, a new one tomorrow. Next to it a plain
+  counter: the days in a row you did it. The card opens the puzzle on Train →
+  Puzzles; it is rated like any other puzzle (first try counts). The streak
+  counts the day whether you solved it or not, and survives until the end of
+  the next day. Days follow your browser's calendar, like the opening trainer.
+  Stored as one column on the puzzle attempts (`daily_on`), no new table.
+
+### Changed
+
+- The Home card no longer shows the next puzzle from your own games; those
+  are where they were, on Train → From your games.
+
 ## [7.18.1] — 2026-10-05
 
 ### Moves land the instant you drop them

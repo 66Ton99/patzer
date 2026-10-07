@@ -102,3 +102,62 @@ describe('picking and rating', () => {
     expect(tactics.recordAttempt(1, 'nope!', true)).toBeNull();
   });
 });
+
+describe('the puzzle of the day', () => {
+  // Users 3 and 4 start fresh; "today" is a fixed calendar day.
+  const today = '2026-10-07';
+  beforeAll(() => {
+    db.prepare(`INSERT INTO users (id, username, password_hash, role) VALUES (3, 'daily', 'x', 'user'), (4, 'daily2', 'x', 'user')`).run();
+  });
+
+  it('is the same puzzle all day, even after other puzzles move your rating', () => {
+    const first = tactics.dailyPuzzle(3, today)!;
+    expect(first).not.toBeNull();
+    expect(Math.abs(first.rating - 1200)).toBeLessThanOrEqual(150);
+    // Solve a few on the Puzzles tab today: the pick only looks at yesterday.
+    for (let i = 0; i < 3; i++) tactics.recordAttempt(3, tactics.nextPuzzle(3, null)!.id, true);
+    expect(tactics.dailyPuzzle(3, today)!.id).toBe(first.id);
+    expect(tactics.dailyDone(3, today)).toBeNull();
+  });
+
+  it('is a different puzzle on another day', () => {
+    expect(tactics.dailyPuzzle(3, '2026-10-08')!.id).not.toBe(tactics.dailyPuzzle(3, today)!.id);
+  });
+
+  it('counts only when it really is the day\'s puzzle', () => {
+    const other = tactics.nextPuzzle(4, null)!;
+    const daily = tactics.dailyPuzzle(4, today)!;
+    if (other.id !== daily.id) {
+      tactics.recordAttempt(4, other.id, true, today);
+      expect(tactics.dailyDone(4, today)).toBeNull();
+    }
+    tactics.recordAttempt(4, daily.id, false, today);
+    expect(tactics.dailyDone(4, today)).toEqual({ solved: false });
+    expect(tactics.dailyStreak(4, today)).toBe(1);
+  });
+
+  it('still counts a puzzle you already tried earlier today', () => {
+    const daily = tactics.dailyPuzzle(3, today)!;
+    tactics.recordAttempt(3, daily.id, true);           // on the Puzzles tab first
+    expect(tactics.dailyDone(3, today)).toBeNull();
+    const r = tactics.recordAttempt(3, daily.id, false, today)!;
+    expect(r.rated).toBe(false);                         // rated once, as always
+    expect(tactics.dailyDone(3, today)).toEqual({ solved: true });
+  });
+
+  it('counts days in a row, and keeps yesterday\'s streak while today is open', () => {
+    const add = (id: string, day: string) => db.prepare(
+      `INSERT INTO tactics_attempts (user_id, puzzle_id, solved, rating_before, rating_after, created_at, daily_on) VALUES (4, ?, 1, 1200, 1200, ?, ?)`,
+    ).run(id, `${day} 08:00:00`, day);
+    add('x1', '2026-10-04'); // a gap on the 5th breaks the run
+    add('x2', '2026-10-06');
+    expect(tactics.dailyStreak(4, today)).toBe(2);       // the 6th + today
+    expect(tactics.dailyStreak(4, '2026-10-08')).toBe(2); // tomorrow, not done yet
+    expect(tactics.dailyStreak(4, '2026-10-09')).toBe(0); // missed a day
+  });
+
+  it('finds the previous day across months and years', () => {
+    expect(tactics.dayBefore('2026-10-01')).toBe('2026-09-30');
+    expect(tactics.dayBefore('2027-01-01')).toBe('2026-12-31');
+  });
+});
