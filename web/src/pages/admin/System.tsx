@@ -341,6 +341,13 @@ export default function AdminSystem() {
               </div>
             ) : models.length > 0 ? (
               <select className="input" value={activeModel} onChange={(e) => setActiveModel(e.target.value)}>
+                {/* The saved model isn't on this server (another URL, or it was
+                    removed). Without its own option the browser showed the first
+                    model while the saved one stayed — and with a single model
+                    there was nothing to pick, so Save kept the missing one. */}
+                {activeModel && !models.includes(activeModel) && (
+                  <option value={activeModel}>{t('admin.modelMissing', { model: activeModel })}</option>
+                )}
                 {models.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             ) : (

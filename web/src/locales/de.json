@@ -532,6 +532,7 @@
     "fail": "FEHLER",
     "loadingModels": "Modelle werden von {{provider}} geladen…",
     "noModels": "Keine Modelle geladen — trage oben die URL ein und klicke auf „Testen“, oder gib einen Modellnamen von Hand ein.",
+    "modelMissing": "{{model}} (auf diesem Server nicht vorhanden)",
     "runtime": "Laufzeit",
     "refresh": "aktualisieren",
     "lastModel": "Zuletzt genutztes Modell",

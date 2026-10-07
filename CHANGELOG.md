@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Admin → System: a saved AI model the server doesn't have.** When the
+  saved model wasn't in the list the server sent back (another URL, or the
+  model was removed), the dropdown showed the first model in the list while
+  the old one stayed saved — and with only one model there was nothing to
+  pick, so Save kept the missing model and the coach failed with a 404. The
+  saved model now shows as its own entry, marked "not on this server".
+
 ## [7.18.1] — 2026-10-05
 
 ### Moves land the instant you drop them
