@@ -289,7 +289,8 @@
     },
     "regenerateReport": "Neu schreiben",
     "fromPosition": "ab Stellung",
-    "playFromPosition": "Ab dieser Stellung gegen Patzer weiterspielen"
+    "playFromPosition": "Ab dieser Stellung gegen Patzer weiterspielen",
+    "playFromHere": "Ab hier spielen"
   },
   "classification": {
     "brilliant": "Brillant",

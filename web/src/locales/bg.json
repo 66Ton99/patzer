@@ -280,7 +280,8 @@
     "noEval": "Още няма оценка",
     "bestLabel": "най-добър:",
     "fromPosition": "от позиция",
-    "playFromPosition": "Продължи да играеш от тази позиция срещу Patzer"
+    "playFromPosition": "Продължи да играеш от тази позиция срещу Patzer",
+    "playFromHere": "Играй оттук"
   },
   "classification": {
     "brilliant": "Брилянтен",

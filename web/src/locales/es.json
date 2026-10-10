@@ -242,7 +242,8 @@
     },
     "regenerateReport": "Escribirlo de nuevo",
     "fromPosition": "desde una posición",
-    "playFromPosition": "Seguir jugando desde esta posición contra Patzer"
+    "playFromPosition": "Seguir jugando desde esta posición contra Patzer",
+    "playFromHere": "Jugar desde aquí"
   },
   "classification": {
     "brilliant": "Brillante",

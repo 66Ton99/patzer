@@ -379,7 +379,7 @@ export default function GameAnalyzer() {
               {fmtCp(currentEvalCp)}
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-center gap-1.5 sm:gap-2">
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
             <button onClick={() => setPly(0)} className="btn-secondary h-10 w-10 p-0 sm:h-12 sm:w-12" title={t('review.first')}><ChevronsLeft className="h-5 w-5" /></button>
             <button onClick={() => setPly((p) => Math.max(0, p - 1))} className="btn-secondary h-10 w-10 p-0 sm:h-12 sm:w-12" title={t('review.prev')}><ChevronLeft className="h-5 w-5" /></button>
             <div className="flex h-10 min-w-[5rem] items-center justify-center rounded-xl bg-chesscom-100 px-3 text-sm font-mono tabular-nums dark:bg-chesscom-800 sm:h-12 sm:min-w-[5.5rem]">
@@ -387,14 +387,14 @@ export default function GameAnalyzer() {
             </div>
             <button onClick={() => setPly((p) => Math.min(positions.length - 1, p + 1))} className="btn-secondary h-10 w-10 p-0 sm:h-12 sm:w-12" title={t('review.next')}><ChevronRight className="h-5 w-5" /></button>
             <button onClick={() => setPly(positions.length - 1)} className="btn-secondary h-10 w-10 p-0 sm:h-12 sm:w-12" title={t('review.last')}><ChevronsRight className="h-5 w-5" /></button>
-          </div>
-          {playOn && (
-            <div className="mt-2 flex justify-center">
-              <Link to={playOn} className="btn-ghost text-sm">
-                <Swords className="h-4 w-4" /> {t('review.playFromPosition')}
+            {/* In the same row as the arrows: on lg+ the workspace is capped at
+                the viewport height and clips anything below this row. */}
+            {playOn && (
+              <Link to={playOn} className="btn-primary h-10 px-3 text-sm sm:h-12 sm:px-4" title={t('review.playFromPosition')}>
+                <Swords className="h-4 w-4" /> {t('review.playFromHere')}
               </Link>
-            </div>
-          )}
+            )}
+          </div>
 
         </div>
 

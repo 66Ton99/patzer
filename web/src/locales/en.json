@@ -289,7 +289,8 @@
     },
     "regenerateReport": "Write it again",
     "fromPosition": "from a position",
-    "playFromPosition": "Play on from this position against Patzer"
+    "playFromPosition": "Play on from this position against Patzer",
+    "playFromHere": "Play from here"
   },
   "classification": {
     "brilliant": "Brilliant",

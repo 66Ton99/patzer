@@ -289,7 +289,8 @@
     },
     "regenerateReport": "Написать заново",
     "fromPosition": "с позиции",
-    "playFromPosition": "Доиграть с этой позиции против Patzer"
+    "playFromPosition": "Доиграть с этой позиции против Patzer",
+    "playFromHere": "Играть отсюда"
   },
   "classification": {
     "brilliant": "Блестящий",
