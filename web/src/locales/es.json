@@ -452,7 +452,20 @@
     "nextPuzzle": "Siguiente problema",
     "openInReview": "Abrir esta posición en el análisis completo",
     "correct": "¡Correcto!",
-    "wrong": "Casi — el motor prefiere"
+    "wrong": "Casi — el motor prefiere",
+    "mine": {
+      "review": "Repaso",
+      "dueLabel": "Para hoy",
+      "moves_one": "La solución tiene {{count}} jugada.",
+      "moves_other": "La solución tiene {{count}} jugadas.",
+      "yourMove": "Te toca. ¡Encuentra la mejor jugada!",
+      "goOn": "¡Bien! Sigue …",
+      "checking": "El motor está mirando tu jugada …",
+      "alsoGood": "¡También es fuerte! El motor pensaba en {{best}}.",
+      "learned": "Resuelto al primer intento: este problema no volverá.",
+      "comesBack": "No al primer intento, así que este problema vuelve mañana.",
+      "solution": "Solución:"
+    }
   },
   "insights": {
     "title": "Estadísticas",
