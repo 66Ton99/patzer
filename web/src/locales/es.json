@@ -452,7 +452,15 @@
     "nextPuzzle": "Siguiente problema",
     "openInReview": "Abrir esta posición en el análisis completo",
     "correct": "¡Correcto!",
-    "wrong": "Casi — el motor prefiere"
+    "wrong": "Casi — el motor prefiere",
+    "puzzles": {
+      "allDone": "Has probado todos los problemas de aquí – ¡impresionante!",
+      "daily": {
+        "title": "Problema del día",
+        "more": "Más problemas",
+        "already": "Este ya lo hiciste hoy: repetirlo no cambia tu puntuación ni tu racha."
+      }
+    }
   },
   "insights": {
     "title": "Estadísticas",
@@ -591,6 +599,12 @@
     "statStreak": "Racha",
     "acrossAnalyzed": "en partidas analizadas",
     "todayPuzzle": "Problema del día",
+    "dailyOpen": "Te espera un problema nuevo",
+    "dailySolved": "Resuelto – ¡hasta mañana!",
+    "dailyDone": "Hecho – el siguiente llega mañana",
+    "dailyStreak_one": "{{count}} día seguido",
+    "dailyStreak_other": "{{count}} días seguidos",
+    "dailyStart": "Uno al día, y empieza tu racha",
     "topOpening": "Tu apertura principal",
     "recentGames": "Partidas recientes",
     "viewAll": "Ver todas →",
