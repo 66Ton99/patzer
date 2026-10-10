@@ -70,10 +70,10 @@ export default function Lab() {
   const fen = chessRef.current.fen();
   const turn = chessRef.current.turn() === 'w' ? 'white' : 'black';
 
-  // "Play from here": you take the side to move against Patzer. A game from a
-  // position starts with white to move (server/src/chess/startFen.ts), so with
-  // black to move it starts one move earlier and replays the move you made
-  // here — when there is one.
+  // "Play from here": you play the side at the bottom of the board (the Play
+  // page lets you switch). A game from a position starts with white to move
+  // (server/src/chess/startFen.ts), so with black to move it starts one move
+  // earlier and replays the move you made here — when there is one.
   const playFrom = useMemo(() => {
     const positions = [{ fen: startFenRef.current }, ...history.slice(0, historyIndex)];
     const from = playFromPosition(positions, historyIndex + 1);
@@ -227,7 +227,7 @@ export default function Lab() {
               </div>
             </div>
             {playFrom ? (
-              <Link to={playFromUrl(playFrom)} className="btn-secondary w-full text-sm">
+              <Link to={playFromUrl(playFrom, orientation)} className="btn-secondary w-full text-sm">
                 <Swords className="h-4 w-4" /> {t('lab.playFromHere')}
               </Link>
             ) : turn === 'black' && (

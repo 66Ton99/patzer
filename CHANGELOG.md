@@ -8,14 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Play from here (roadmap #13).** In Game Review, "Play on from this
-  position against Patzer" under the board starts a bot game from whatever
-  move you are looking at: you keep your colour, and when it's the other
-  side's turn Patzer moves first. Your own inaccuracy, mistake, blunder or
-  miss also gets "Try this move again against Patzer": it starts right
-  before that move, so you can find the better one for real. You pick the
-  bot's strength and the clock. The Lab has the same button for the
-  position on its board: you play the side to move. The game is saved like
+- **Play from here (roadmap #13).** In Game Review, the move card has a
+  "Play from here against Patzer" button at every move: it starts a bot game
+  from the position on the board. You play your own colour, and when it's
+  the other side's turn Patzer moves first; to redo a slip, pick the move
+  before it. The Lab has the same button for the position on its board, with
+  the colour at the bottom of the board. Before the game starts you can
+  still switch colour, and pick the bot's strength and the clock. The game is saved like
   any bot game — unrated, marked "from a position" in the game list and in
   Game Review, and kept out of the opening tree, the opening trainer's
   repertoire and Insights (`games.start_fen`). A game from a position always

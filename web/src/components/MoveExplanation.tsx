@@ -10,7 +10,6 @@ import { Link } from 'react-router-dom';
 import { Swords } from 'lucide-react';
 import { CLASS_STYLE, GLYPH_SVG } from '../lib/classification';
 import CoachPanel from './CoachPanel';
-import { playFromUrl } from '../lib/fromPosition';
 import type { AnalyzedMove } from '../types';
 
 /** Lichess win-chance curve (same as the server's cpToWinPct), 0..100 for White. */
@@ -36,13 +35,10 @@ interface Props {
   userColor: 'white' | 'black' | null;
   coachConfigured: boolean;
   coachRequest: (() => { url: string; body: Record<string, unknown> }) | null;
-  /** The position before this move. Your own slip gets a "play from here"
-   *  link: try the better move against Patzer, from exactly there. */
-  playFrom?: { fen: string; moves: string[] };
+  /** "Play from here" link for the position after this move (the one on the
+   *  board): play on against Patzer. Absent once the game is over. */
+  playFrom?: string;
 }
-
-// Labels worth replaying the position for.
-const REPLAY = new Set(['inaccuracy', 'mistake', 'blunder', 'miss']);
 
 export default function MoveExplanation({ move, userColor, coachConfigured, coachRequest, playFrom }: Props) {
   const { t } = useTranslation();
@@ -88,8 +84,8 @@ export default function MoveExplanation({ move, userColor, coachConfigured, coac
         </div>
       )}
 
-      {playFrom && side === userColor && REPLAY.has(move.classification) && (
-        <Link to={playFromUrl(playFrom)} className="btn-secondary mt-2 w-full text-xs">
+      {playFrom && (
+        <Link to={playFrom} className="btn-secondary mt-2 w-full text-xs">
           <Swords className="h-3.5 w-3.5" /> {t('review.why.playFromHere')}
         </Link>
       )}

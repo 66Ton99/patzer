@@ -238,12 +238,10 @@
       "mistake": "Un error: la probabilidad de ganar bajó un {{drop}}% ({{before}}% → {{after}}%), unos {{pawns}} peones: se perdió buena parte de la ventaja.",
       "blunder": "Un error grave: la probabilidad de ganar se desplomó un {{drop}}% ({{before}}% → {{after}}%), unos {{pawns}} peones. Una jugada así suele perder material o permitir un ataque decisivo.",
       "miss": "Una oportunidad perdida: la posición estaba ganada ({{before}}% de ganar) y esta jugada dejó escapar la victoria ({{after}}%). Había una jugada mucho más fuerte.",
-      "playFromHere": "Intentar esta jugada otra vez contra Patzer"
+      "playFromHere": "Jugar desde aquí contra Patzer"
     },
     "regenerateReport": "Escribirlo de nuevo",
-    "fromPosition": "desde una posición",
-    "playFromPosition": "Seguir jugando desde esta posición contra Patzer",
-    "playFromHere": "Jugar desde aquí"
+    "fromPosition": "desde una posición"
   },
   "classification": {
     "brilliant": "Brillante",

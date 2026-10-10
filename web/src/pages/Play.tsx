@@ -153,6 +153,9 @@ export default function Play() {
 
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [color, setColor] = useState<'white' | 'black' | 'random'>('white');
+  // From a position the link suggests your colour; you can still switch it.
+  const [fromColor, setFromColor] = useState<'white' | 'black'>('white');
+  useEffect(() => { if (fromPos) setFromColor(fromPos.color); }, [fromPos]);
   const [tc, setTc] = useState<typeof TIME_CONTROLS[number]>('untimed');
 
   const [fen, setFen] = useState(START_FEN);
@@ -342,7 +345,7 @@ export default function Play() {
   };
 
   function startBot() {
-    const finalColor = fromPos ? fromPos.color : color === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : color;
+    const finalColor = fromPos ? fromColor : color === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : color;
     setUserColor(finalColor);
     userColorRef.current = finalColor;
     resetGameState();
@@ -350,7 +353,7 @@ export default function Play() {
     if (fromPos) {
       socket().connect(
         wsUrl(null),
-        { type: 'new_game', difficulty, time_control: tc, fen: fromPos.fen, moves: fromPos.moves, color: fromPos.color },
+        { type: 'new_game', difficulty, time_control: tc, fen: fromPos.fen, moves: fromPos.moves, color: fromColor },
         { type: 'resume' },
       );
       return;
@@ -842,11 +845,11 @@ export default function Play() {
         {setupTab === 'bot' && fromPos && (
           <div className="card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:p-5">
             <div className={`w-40 shrink-0 self-center board-theme-${user?.profile.board_theme ?? 'green'}`}>
-              <ChessBoard fen={fromPos.at} orientation={fromPos.color} movable={false} />
+              <ChessBoard fen={fromPos.at} orientation={fromColor} movable={false} />
             </div>
             <div className="min-w-0 flex-1 space-y-1.5">
               <div className="text-sm font-semibold">{t('play.fromPosition.title')}</div>
-              <p className="text-xs text-chesscom-500">{t('play.fromPosition.desc', { color: t(`play.${fromPos.color}`) })}</p>
+              <p className="text-xs text-chesscom-500">{t('play.fromPosition.desc', { color: t(`play.${fromColor}`) })}</p>
               <button onClick={() => nav('/play')} className="btn-ghost px-0 text-xs text-chesscom-500">{t('play.fromPosition.normal')}</button>
             </div>
           </div>
@@ -869,14 +872,22 @@ export default function Play() {
                 ))}
               </div>
             </div>
-            {!fromPos && <div>
+            <div>
               <div className="label mb-2">{t('play.color')}</div>
-              <div className="grid grid-cols-3 gap-2">
-                {(['white','random','black'] as const).map((c) => (
-                  <button key={c} onClick={() => setColor(c)} className={`btn ${color === c ? 'btn-primary' : 'btn-secondary'}`}>{t(`play.${c}`)}</button>
-                ))}
-              </div>
-            </div>}
+              {fromPos ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {(['white', 'black'] as const).map((c) => (
+                    <button key={c} onClick={() => setFromColor(c)} className={`btn ${fromColor === c ? 'btn-primary' : 'btn-secondary'}`}>{t(`play.${c}`)}</button>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {(['white','random','black'] as const).map((c) => (
+                    <button key={c} onClick={() => setColor(c)} className={`btn ${color === c ? 'btn-primary' : 'btn-secondary'}`}>{t(`play.${c}`)}</button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div>
               <div className="label mb-2">{t('play.timeControl')}</div>
               <div className="flex flex-wrap gap-2">

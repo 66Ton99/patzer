@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Settings as SettingsIcon, Copy, Download, Check, ListOrdered, FileText, X, Star, Share2, FlipVertical2, NotebookPen, Search, Loader2, Swords } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Settings as SettingsIcon, Copy, Download, Check, ListOrdered, FileText, X, Star, Share2, FlipVertical2, NotebookPen, Search, Loader2 } from 'lucide-react';
 import { Chess } from 'chess.js';
 import ChessBoard from '../components/ChessBoard';
 import EvalBar from '../components/EvalBar';
@@ -231,8 +231,9 @@ export default function GameAnalyzer() {
 
   const move: AnalyzedMove | undefined = analysis?.moves[ply - 1];
   const userColor = data.game.user_color ?? 'white';
-  // "Play from this position": the position on the board, any move — you
-  // keep your colour and Patzer takes the other side. Not once the game is over.
+  // "Play from here" (in the move card): the position on the board, at any
+  // move — you keep your colour and Patzer takes the other side. To redo a
+  // slip, you pick the move before it. Not once the game is over.
   const playOnFrom = playFromPosition(positions, ply + 1);
   const playOnColor = data.game.user_color ?? undefined;
   const playOn = playOnFrom && parseFromPosition(playOnFrom.fen, playOnFrom.moves.join(','), playOnColor ?? null)
@@ -379,7 +380,7 @@ export default function GameAnalyzer() {
               {fmtCp(currentEvalCp)}
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
+          <div className="mt-3 flex items-center justify-center gap-1.5 sm:gap-2">
             <button onClick={() => setPly(0)} className="btn-secondary h-10 w-10 p-0 sm:h-12 sm:w-12" title={t('review.first')}><ChevronsLeft className="h-5 w-5" /></button>
             <button onClick={() => setPly((p) => Math.max(0, p - 1))} className="btn-secondary h-10 w-10 p-0 sm:h-12 sm:w-12" title={t('review.prev')}><ChevronLeft className="h-5 w-5" /></button>
             <div className="flex h-10 min-w-[5rem] items-center justify-center rounded-xl bg-chesscom-100 px-3 text-sm font-mono tabular-nums dark:bg-chesscom-800 sm:h-12 sm:min-w-[5.5rem]">
@@ -387,13 +388,6 @@ export default function GameAnalyzer() {
             </div>
             <button onClick={() => setPly((p) => Math.min(positions.length - 1, p + 1))} className="btn-secondary h-10 w-10 p-0 sm:h-12 sm:w-12" title={t('review.next')}><ChevronRight className="h-5 w-5" /></button>
             <button onClick={() => setPly(positions.length - 1)} className="btn-secondary h-10 w-10 p-0 sm:h-12 sm:w-12" title={t('review.last')}><ChevronsRight className="h-5 w-5" /></button>
-            {/* In the same row as the arrows: on lg+ the workspace is capped at
-                the viewport height and clips anything below this row. */}
-            {playOn && (
-              <Link to={playOn} className="btn-primary h-10 px-3 text-sm sm:h-12 sm:px-4" title={t('review.playFromPosition')}>
-                <Swords className="h-4 w-4" /> {t('review.playFromHere')}
-              </Link>
-            )}
           </div>
 
         </div>
@@ -503,7 +497,7 @@ export default function GameAnalyzer() {
                       userColor={data.game.user_color}
                       coachConfigured={coachConfigured}
                       coachRequest={coachReq}
-                      playFrom={playFromPosition(positions, move.ply)}
+                      playFrom={playOn ?? undefined}
                     />
                   )}
                   {tab === 'moves' && (
