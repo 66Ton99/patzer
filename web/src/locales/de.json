@@ -169,7 +169,7 @@
     "subtitle": "Wähle einen Bot oder fordere einen Freund heraus.",
     "fromPosition": {
       "title": "Ab dieser Stellung spielen",
-      "desc": "Du spielst: {{color}}. Such den besseren Zug. Die Partie wird gespeichert, zählt aber nicht für die Wertung, deine Eröffnungen und die Statistik.",
+      "desc": "Du spielst: {{color}}. Die Partie wird gespeichert, zählt aber nicht für die Wertung, deine Eröffnungen und die Statistik.",
       "normal": "Lieber eine normale Partie"
     }
   },
@@ -1040,7 +1040,9 @@
     "lines": "Varianten",
     "depthLabel": "Tiefe",
     "moves": "Züge",
-    "startPos": "Start"
+    "startPos": "Start",
+    "playFromHere": "Ab hier gegen Patzer spielen",
+    "playFromHint": "Ab hier spielen geht, wenn Weiß am Zug ist – oder direkt nach einem Zug, den du hier im Lab gemacht hast."
   },
   "home": {
     "greeting": "Hallo, {{name}}!",

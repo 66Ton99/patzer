@@ -11,12 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Play from here (roadmap #13).** In Game Review, your own inaccuracy,
   mistake, blunder or miss now has a "Play from here against Patzer" button:
   it opens Play with that position, you pick the bot's strength and the clock,
-  and try the better move for real. The game is saved like any bot game —
-  unrated, marked "from a position" in Game Review, and kept out of the
-  opening tree, the opening trainer's repertoire and Insights (`games.start_fen`).
-  A game from a position always starts with white to move, so for a black
-  move it starts one move earlier and Patzer first replays your opponent's
-  move from the game.
+  and try the better move for real. The Lab has the same button for the
+  position on its board: you play the side to move. The game is saved like
+  any bot game — unrated, marked "from a position" in the game list and in
+  Game Review, and kept out of the opening tree, the opening trainer's
+  repertoire and Insights (`games.start_fen`). A game from a position always
+  starts with white to move, so for a black move it starts one move earlier
+  and Patzer first replays the move before it.
+
+### Fixed
+
+- Lab: "Start" in the move list went back to the normal starting position
+  even after you had set a FEN; it now goes back to your position.
 
 ## [7.18.1] — 2026-10-05
 

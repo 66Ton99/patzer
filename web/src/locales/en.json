@@ -169,7 +169,7 @@
     "subtitle": "Pick a bot or challenge a friend.",
     "fromPosition": {
       "title": "Play from this position",
-      "desc": "You play: {{color}}. Look for the better move. The game is saved, unrated, and kept out of your opening and Insights statistics.",
+      "desc": "You play: {{color}}. The game is saved, unrated, and kept out of your opening and Insights statistics.",
       "normal": "Start a normal game instead"
     }
   },
@@ -1040,7 +1040,9 @@
     "lines": "Lines",
     "depthLabel": "depth",
     "moves": "Moves",
-    "startPos": "Start"
+    "startPos": "Start",
+    "playFromHere": "Play from here against Patzer",
+    "playFromHint": "Playing from here needs White to move — or a move you made here in the Lab just before."
   },
   "home": {
     "greeting": "Hi, {{name}}!",
