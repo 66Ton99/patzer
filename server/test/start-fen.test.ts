@@ -39,4 +39,21 @@ describe('games from a position', () => {
     expect(lookupOpeningFromPgn(c.pgn())).toBeNull();
     expect(lookupOpeningFromPgn('1. e4 e5 2. Nf3 Nc6 3. Bb5 *')).not.toBeNull();
   });
+
+  it('still finds the start in the raw PGN when chess.js dropped the headers', () => {
+    const start = new Chess().fen();
+    const pgn = `[SetUp "1"]\n[FEN "${start}"]\n\n1. e4 c6 *`;
+    const loaded = new Chess();
+    loaded.loadPgn(pgn);
+    expect(startFenOf(loaded, pgn)).toBe(start);
+    expect(startFenOf(loaded, '1. e4 c6 *')).toBeUndefined();
+  });
+
+  it('has no opening even when it starts from the normal start position', () => {
+    // chess.js drops SetUp/FEN for the default FEN, so this is the PGN the
+    // Lab's untouched board saves.
+    const pgn = '[Event "Local game vs bot, from a position"]\n[SetUp "1"]\n[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]\n\n1. e4 c6 0-1';
+    expect(lookupOpeningFromPgn(pgn)).toBeNull();
+    expect(lookupOpeningFromPgn(pgn.replace('[SetUp "1"]\n', ''))).not.toBeNull();
+  });
 });

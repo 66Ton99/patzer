@@ -6,10 +6,15 @@ import { Chess } from 'chess.js';
 // fresh `new Chess()` has to start from that FEN too, or the first move is
 // illegal.
 
-/** The position a loaded game started from, or undefined for the normal start. */
-export function startFenOf(chess: Chess): string | undefined {
+/** The position a loaded game started from, or undefined for the normal start.
+ *  Pass the raw `pgn` it was loaded from when it matters whether it is a game
+ *  from a position at all: chess.js drops SetUp/FEN when the FEN is the
+ *  normal start position (the Lab's untouched board), the raw text keeps them. */
+export function startFenOf(chess: Chess, pgn?: string): string | undefined {
   const h = chess.getHeaders();
-  return h.SetUp === '1' && h.FEN ? h.FEN : undefined;
+  if (h.SetUp === '1' && h.FEN) return h.FEN;
+  if (pgn && /^\[SetUp\s+"1"\]/m.test(pgn)) return /^\[FEN\s+"([^"]+)"\]/m.exec(pgn)?.[1];
+  return undefined;
 }
 
 /**

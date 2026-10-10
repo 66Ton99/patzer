@@ -199,11 +199,13 @@ function ensureMap(): Map<string, OpeningRecord> {
  *  no entry matches (e.g. unusual move 1). */
 export function lookupOpeningFromPgn(pgn: string): { eco: string; name: string; plies: number } | null {
   if (!pgn || !pgn.trim()) return null;
+  // A game from a position never had an opening. Read the raw header:
+  // chess.js drops SetUp/FEN when the FEN is the normal start position (the
+  // Lab's untouched board), and the game would pass for a regular one.
+  if (/^\[SetUp\s+"1"\]/m.test(pgn)) return null;
   const map = ensureMap();
   const chess = new Chess();
   try { chess.loadPgn(pgn, { strict: false }); } catch { return null; }
-  // A game from a position never had an opening.
-  if (chess.getHeaders().SetUp === '1') return null;
   const history = chess.history({ verbose: true });
   const replay = new Chess();
   // Try the empty-line first (covers "starting position"), then walk forward.

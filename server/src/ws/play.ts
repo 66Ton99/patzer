@@ -421,8 +421,11 @@ async function handleBotConnection(ws: WebSocket, user: AuthedUser) {
           blackTimeMs: row.black_time_ms ?? tc?.initial ?? 0,
           lastMoveAt: Date.now(),
           saved: false,
-          startFen: startFenOf(chess) ?? null,
+          startFen: startFenOf(chess, row.pgn) ?? null,
         };
+        // Put the headers back if chess.js dropped them on load, so the saved
+        // game still reads as one from a position.
+        if (session.startFen) { chess.header('SetUp', '1'); chess.header('FEN', session.startFen); }
         snapshot(session);
 
         send(ws, 'game_started', {
