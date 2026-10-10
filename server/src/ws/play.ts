@@ -319,14 +319,16 @@ async function handleBotConnection(ws: WebSocket, user: AuthedUser) {
           if (session.analysisEngine) session.analysisEngine.quit().catch(() => { /* ignore */ });
         }
         const difficulty = (msg.difficulty as Difficulty) ?? 'medium';
-        // From a position: you play the side to move — the point is to find
-        // the better move there yourself.
+        // From a position: you play the colour you ask for (Game Review: your
+        // own, from any move), else the side to move (Lab, "try this move
+        // again"). When it isn't your turn, the bot moves first (below).
         const fromPosition = msg.fen === undefined ? null : startFromPosition(msg.fen, msg.moves ?? []);
         if (msg.fen !== undefined && !fromPosition) { send(ws, 'error', { message: 'invalid position' }); return; }
         const startFen = fromPosition ? new Chess(msg.fen as string).fen() : null;
+        const askedColor = msg.color === 'white' || msg.color === 'black' ? msg.color : null;
         const userColor = fromPosition
-          ? (fromPosition.turn() === 'w' ? 'white' : 'black')
-          : (msg.color as 'white' | 'black') ?? 'white';
+          ? askedColor ?? (fromPosition.turn() === 'w' ? 'white' : 'black')
+          : askedColor ?? 'white';
         const tcKey = (msg.time_control as string) ?? 'untimed';
         const tc = TIME_CONTROLS[tcKey] ?? null;
 

@@ -8,10 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Play from here (roadmap #13).** In Game Review, your own inaccuracy,
-  mistake, blunder or miss now has a "Play from here against Patzer" button:
-  it opens Play with that position, you pick the bot's strength and the clock,
-  and try the better move for real. The Lab has the same button for the
+- **Play from here (roadmap #13).** In Game Review, "Play on from this
+  position against Patzer" under the board starts a bot game from whatever
+  move you are looking at: you keep your colour, and when it's the other
+  side's turn Patzer moves first. Your own inaccuracy, mistake, blunder or
+  miss also gets "Try this move again against Patzer": it starts right
+  before that move, so you can find the better one for real. You pick the
+  bot's strength and the clock. The Lab has the same button for the
   position on its board: you play the side to move. The game is saved like
   any bot game — unrated, marked "from a position" in the game list and in
   Game Review, and kept out of the opening tree, the opening trainer's

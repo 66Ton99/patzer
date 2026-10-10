@@ -146,7 +146,7 @@ export default function Play() {
   const nav = useNavigate();
   const [params] = useSearchParams();
   const pvpGameId = Number(params.get('game') ?? 0) || null;
-  const fromPos = useMemo(() => parseFromPosition(params.get('fen'), params.get('moves')), [params]);
+  const fromPos = useMemo(() => parseFromPosition(params.get('fen'), params.get('moves'), params.get('color')), [params]);
 
   const [phase, setPhase] = useState<'setup' | 'playing' | 'over'>('setup');
   const [setupTab, setSetupTab] = useState<'bot' | 'friend'>('bot');
@@ -350,7 +350,7 @@ export default function Play() {
     if (fromPos) {
       socket().connect(
         wsUrl(null),
-        { type: 'new_game', difficulty, time_control: tc, fen: fromPos.fen, moves: fromPos.moves },
+        { type: 'new_game', difficulty, time_control: tc, fen: fromPos.fen, moves: fromPos.moves, color: fromPos.color },
         { type: 'resume' },
       );
       return;

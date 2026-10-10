@@ -34,6 +34,17 @@ describe('play from here', () => {
     expect(parsed.at).toBe(positions[3]!.fen);
   });
 
+  it('keeps your own colour from Game Review, whoever is to move', () => {
+    // After 2. Nf3 black is to move; playing on as White, Patzer moves first.
+    const p = playFromPosition(positions, 4)!;
+    const q = new URLSearchParams(playFromUrl(p, 'white').split('?')[1]);
+    const parsed = parseFromPosition(q.get('fen'), q.get('moves'), q.get('color'))!;
+    expect(parsed.color).toBe('white');
+    expect(parsed.at).toBe(positions[3]!.fen);
+    // Anything else than a colour means: the side to move.
+    expect(parseFromPosition(q.get('fen'), q.get('moves'), 'purple')!.color).toBe('black');
+  });
+
   it('refuses what the server would refuse', () => {
     expect(parseFromPosition(positions[1]!.fen, null)).toBeNull();           // black to move
     expect(parseFromPosition('not a fen', null)).toBeNull();

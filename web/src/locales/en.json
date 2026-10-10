@@ -285,10 +285,11 @@
       "mistake": "A mistake: the win chance dropped by {{drop}}% ({{before}}% → {{after}}%), about {{pawns}} pawns — a real chunk of the advantage went away.",
       "blunder": "A blunder: the win chance collapsed by {{drop}}% ({{before}}% → {{after}}%), about {{pawns}} pawns. This kind of move usually loses material or allows a decisive attack.",
       "miss": "A miss: the position was winning ({{before}}% win chance) and this move let the win slip ({{after}}%). There was a much stronger move on the board.",
-      "playFromHere": "Play from here against Patzer"
+      "playFromHere": "Try this move again against Patzer"
     },
     "regenerateReport": "Write it again",
-    "fromPosition": "from a position"
+    "fromPosition": "from a position",
+    "playFromPosition": "Play on from this position against Patzer"
   },
   "classification": {
     "brilliant": "Brilliant",

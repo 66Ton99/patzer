@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Settings as SettingsIcon, Copy, Download, Check, ListOrdered, FileText, X, Star, Share2, FlipVertical2, NotebookPen, Search, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Settings as SettingsIcon, Copy, Download, Check, ListOrdered, FileText, X, Star, Share2, FlipVertical2, NotebookPen, Search, Loader2, Swords } from 'lucide-react';
 import { Chess } from 'chess.js';
 import ChessBoard from '../components/ChessBoard';
 import EvalBar from '../components/EvalBar';
@@ -21,7 +21,7 @@ import ExplorerPanel from '../components/ExplorerPanel';
 import { soundForMove, inferMoveFlagsFromSan } from '../lib/sounds';
 import { api } from '../api';
 import { useAuth } from '../state/auth';
-import { playFromPosition } from '../lib/fromPosition';
+import { parseFromPosition, playFromPosition, playFromUrl } from '../lib/fromPosition';
 import type { AnalysisResult, AnalyzedMove, KeyMomentSummary, PhaseSplit } from '../types';
 
 interface GameDetail {
@@ -231,6 +231,12 @@ export default function GameAnalyzer() {
 
   const move: AnalyzedMove | undefined = analysis?.moves[ply - 1];
   const userColor = data.game.user_color ?? 'white';
+  // "Play from this position": the position on the board, any move — you
+  // keep your colour and Patzer takes the other side. Not once the game is over.
+  const playOnFrom = playFromPosition(positions, ply + 1);
+  const playOnColor = data.game.user_color ?? undefined;
+  const playOn = playOnFrom && parseFromPosition(playOnFrom.fen, playOnFrom.moves.join(','), playOnColor ?? null)
+    ? playFromUrl(playOnFrom, playOnColor) : null;
   const orientation: 'white' | 'black' = flipped
     ? (userColor === 'white' ? 'black' : 'white')
     : userColor;
@@ -382,6 +388,13 @@ export default function GameAnalyzer() {
             <button onClick={() => setPly((p) => Math.min(positions.length - 1, p + 1))} className="btn-secondary h-10 w-10 p-0 sm:h-12 sm:w-12" title={t('review.next')}><ChevronRight className="h-5 w-5" /></button>
             <button onClick={() => setPly(positions.length - 1)} className="btn-secondary h-10 w-10 p-0 sm:h-12 sm:w-12" title={t('review.last')}><ChevronsRight className="h-5 w-5" /></button>
           </div>
+          {playOn && (
+            <div className="mt-2 flex justify-center">
+              <Link to={playOn} className="btn-ghost text-sm">
+                <Swords className="h-4 w-4" /> {t('review.playFromPosition')}
+              </Link>
+            </div>
+          )}
 
         </div>
 

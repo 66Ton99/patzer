@@ -285,10 +285,11 @@
       "mistake": "Ein Fehler: Die Gewinnchance sank um {{drop}} % ({{before}} % → {{after}} %), etwa {{pawns}} Bauern — ein guter Teil des Vorteils ist weg.",
       "blunder": "Ein Patzer: Die Gewinnchance brach um {{drop}} % ein ({{before}} % → {{after}} %), etwa {{pawns}} Bauern. Solche Züge verlieren meist Material oder erlauben einen entscheidenden Angriff.",
       "miss": "Verpasst: Die Stellung war gewonnen ({{before}} % Gewinnchance), und dieser Zug ließ den Sieg entgleiten ({{after}} %). Es gab einen viel stärkeren Zug.",
-      "playFromHere": "Ab hier gegen Patzer spielen"
+      "playFromHere": "Diesen Zug nochmal versuchen – gegen Patzer"
     },
     "regenerateReport": "Neu schreiben",
-    "fromPosition": "ab Stellung"
+    "fromPosition": "ab Stellung",
+    "playFromPosition": "Ab dieser Stellung gegen Patzer weiterspielen"
   },
   "classification": {
     "brilliant": "Brillant",
