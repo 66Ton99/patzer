@@ -29,7 +29,7 @@ What you get:
 | `OIDC_BUTTON_TEXT` | "Sign in with SSO" (translated) | Label of the button on the login page, e.g. `Sign in with Authentik`. |
 | `OIDC_ONLY` | `false` | `true` removes password login, sign-up, "forgot password" and password reset, in the interface and on the server, and replaces the setup wizard on a fresh install ([SSO only](#sso-only)). Ignored, with a warning in the log, when SSO isn't configured, so a typo can't lock everyone out. |
 | `OIDC_ADMIN_GROUP` | (none) | Name of a provider group whose members are Patzer admins ([Admins from a provider group](#admins-from-a-provider-group)). |
-| `OIDC_AUTO_PROVISION` | `false` | `true` creates a Patzer account for someone the provider lets in who has none yet. With `false`, only linked or matched accounts can sign in through SSO (plus the very first account in SSO-only mode). |
+| `OIDC_AUTO_PROVISION` | `false` | `true` creates a Patzer account for someone the provider lets in who has none yet. With `true`, the identity provider becomes the sign-up gate, and invite codes are bypassed. With `false`, only linked or matched accounts can sign in through SSO (plus the very first account in SSO-only mode).  |
 | `OIDC_MATCH_BY` | `none` | How a first SSO login finds an existing account: `username` (the provider's `preferred_username`, case-insensitive), `email` (only when the provider says the email is verified) or `none`. |
 | `PUBLIC_BASE_URL` | (request origin) | The address people use to reach Patzer, e.g. `https://chess.example.com`. The callback and logout URLs are built from it. **Set it behind a reverse proxy.** The *Public base URL* in Admin → System takes precedence when set. |
 | `COOKIE_SECURE` | `false` | Set to `true` when Patzer is served over HTTPS. |

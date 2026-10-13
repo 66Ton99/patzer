@@ -568,7 +568,7 @@
     "signInPassword": "Пароль",
     "signInSsoHint": "Создан при входе через единый вход (SSO)",
     "signInPasswordHint": "Создан с именем пользователя и паролем",
-    "ssoLinked": "привязан к SSO"
+    "ssoLinked": "привязан к SSO",
     "deepseekUrl": "URL DeepSeek (необязательно)",
     "deepseekModel": "Модель DeepSeek",
     "deepseekKey": "API-ключ DeepSeek",
