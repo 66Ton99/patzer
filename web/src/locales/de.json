@@ -612,6 +612,19 @@
     "openInReview": "Diese Stellung in der vollen Analyse öffnen",
     "correct": "Richtig!",
     "wrong": "Nicht ganz — die Engine bevorzugt",
+    "mine": {
+      "review": "Wiederholung",
+      "dueLabel": "Fällig",
+      "moves_one": "Die Lösung hat {{count}} Zug.",
+      "moves_other": "Die Lösung hat {{count}} Züge.",
+      "yourMove": "Du bist am Zug. Finde den besten Zug!",
+      "goOn": "Gut! Und weiter …",
+      "checking": "Die Engine prüft deinen Zug …",
+      "alsoGood": "Auch stark! Die Engine hatte {{best}} im Sinn.",
+      "learned": "Im ersten Versuch gelöst – diese Aufgabe kommt nicht wieder.",
+      "comesBack": "Nicht im ersten Versuch – deshalb kommt diese Aufgabe morgen noch einmal.",
+      "solution": "Lösung:"
+    },
     "tabs": {
       "mine": "Aus deinen Partien",
       "puzzles": "Taktikaufgaben"

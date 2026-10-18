@@ -612,6 +612,19 @@
     "openInReview": "Open this position in the full review",
     "correct": "Correct!",
     "wrong": "Not quite — the engine prefers",
+    "mine": {
+      "review": "Review",
+      "dueLabel": "Due",
+      "moves_one": "The solution has {{count}} move.",
+      "moves_other": "The solution has {{count}} moves.",
+      "yourMove": "Your move. Find the best one!",
+      "goOn": "Good! Keep going …",
+      "checking": "The engine is looking at your move …",
+      "alsoGood": "Also strong! The engine had {{best}} in mind.",
+      "learned": "Solved at the first try — this one won't come back.",
+      "comesBack": "Not at the first try, so this puzzle comes back tomorrow.",
+      "solution": "Solution:"
+    },
     "tabs": {
       "mine": "From your games",
       "puzzles": "Puzzles"
