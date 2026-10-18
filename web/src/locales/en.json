@@ -532,6 +532,7 @@
     "fail": "FAIL",
     "loadingModels": "Loading models from {{provider}}…",
     "noModels": "No models loaded — set the URL above and click Test, or type a model name manually.",
+    "modelMissing": "{{model}} (not on this server)",
     "runtime": "Runtime",
     "refresh": "refresh",
     "lastModel": "Last model used",
