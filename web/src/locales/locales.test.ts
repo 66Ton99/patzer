@@ -6,6 +6,8 @@ import learnEn from './learn/en.json';
 import learnDe from './learn/de.json';
 import learnRu from './learn/ru.json';
 import ru from './ru.json';
+import bg from './bg.json';
+import es from './es.json';
 import { loadLearnTexts } from '../learn/content';
 import { goalText } from '../lib/goalText';
 
@@ -106,6 +108,20 @@ describe('ru locale', () => {
           ruFlat[`${key}_${form}`]!.replace('{{count}}', String(count)),
         );
       }
+    }
+  });
+});
+
+// Bulgarian and Spanish are partial (missing keys fall back to English), but
+// the Home card is on everyone's first screen every day: its texts are in all
+// five locales.
+describe.each([['de', de], ['ru', ru], ['bg', bg], ['es', es]] as const)('%s puzzle-of-the-day texts', (_lang, texts) => {
+  it('has the Home card and its Puzzles-tab texts', () => {
+    const flat = flatten(texts as Tree);
+    for (const key of ['home.todayPuzzle', 'home.dailyOpen', 'home.dailySolved', 'home.dailyDone', 'home.dailyStart',
+      'home.dailyStreak_one', 'home.dailyStreak_other', 'train.puzzles.allDone',
+      'train.puzzles.daily.title', 'train.puzzles.daily.more', 'train.puzzles.daily.already']) {
+      expect(flat[key], key).toBeTruthy();
     }
   });
 });

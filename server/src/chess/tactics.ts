@@ -82,6 +82,70 @@ export function nextPuzzle(userId: number, theme: string | null, rng = Math.rand
   }
 }
 
+// ---- The puzzle of the day ----
+//
+// One puzzle a day on the Home card, near your rating, and a streak: the days
+// in a row you did it. Deliberately plain — a counter, no badges.
+//
+// The pick must not move during the day, so it only looks at what was true
+// before the day began: your rating after your last puzzle before today, and
+// the puzzles you had tried by then. Among those the same window search as
+// `nextPuzzle`, but the "random" choice comes from the date.
+
+/** A small deterministic generator (mulberry32) seeded from a string. */
+function seeded(seed: string): () => number {
+  let a = 2166136261;
+  for (let i = 0; i < seed.length; i++) a = Math.imul(a ^ seed.charCodeAt(i), 16777619);
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let x = Math.imul(a ^ (a >>> 15), 1 | a);
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** The calendar day before `day` (YYYY-MM-DD). */
+export function dayBefore(day: string): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Your puzzle of the day for `day` (the browser's calendar day). Null only
+ *  when you have tried every puzzle in the set. */
+export function dailyPuzzle(userId: number, day: string): TacticsPuzzle | null {
+  const done = db.prepare('SELECT puzzle_id FROM tactics_attempts WHERE user_id = ? AND daily_on = ?').get(userId, day) as { puzzle_id: string } | undefined;
+  if (done) return puzzleById(done.puzzle_id) ?? null;
+  // `created_at` is UTC; the browser's day can be a few hours off, which only
+  // decides which side of midnight an attempt counts — never mid-day.
+  const before = (db.prepare('SELECT puzzle_id, rating_after FROM tactics_attempts WHERE user_id = ? AND created_at < ? ORDER BY created_at DESC, rowid DESC')
+    .all(userId, day) as { puzzle_id: string; rating_after: number }[]);
+  const tried = new Set(before.map((r) => r.puzzle_id));
+  const rating = before[0]?.rating_after ?? GLICKO_DEFAULTS.rating;
+  const pool = allPuzzles().filter((p) => !tried.has(p.id));
+  if (pool.length === 0) return null;
+  const rng = seeded(day);
+  for (let window = 75; ; window *= 2) {
+    const near = pool.filter((p) => Math.abs(p.rating - rating) <= window);
+    if (near.length > 0) return near[Math.floor(rng() * near.length)]!;
+  }
+}
+
+/** How you did today's puzzle, or null while it's still to do. */
+export function dailyDone(userId: number, day: string): { solved: boolean } | null {
+  const row = db.prepare('SELECT solved FROM tactics_attempts WHERE user_id = ? AND daily_on = ?').get(userId, day) as { solved: number } | undefined;
+  return row ? { solved: row.solved === 1 } : null;
+}
+
+/** Days in a row you did the puzzle of the day, up to `day` — or up to
+ *  yesterday while today's is still open, so the morning doesn't read 0. */
+export function dailyStreak(userId: number, day: string): number {
+  const days = new Set((db.prepare('SELECT daily_on FROM tactics_attempts WHERE user_id = ? AND daily_on IS NOT NULL').all(userId) as { daily_on: string }[])
+    .map((r) => r.daily_on));
+  let d = days.has(day) ? day : dayBefore(day);
+  let streak = 0;
+  while (days.has(d)) { streak++; d = dayBefore(d); }
+  return streak;
+}
+
 export interface AttemptResult {
   /** False when you had tried this puzzle before — nothing changed. */
   rated: boolean;
@@ -90,13 +154,19 @@ export interface AttemptResult {
 }
 
 /** Record your first try at a puzzle and update your rating. Null for a
- *  puzzle that doesn't exist. */
-export function recordAttempt(userId: number, puzzleId: string, solved: boolean): AttemptResult | null {
+ *  puzzle that doesn't exist. With `daily` (a calendar day) the try is also
+ *  that day's puzzle of the day — if it really is that day's puzzle. */
+export function recordAttempt(userId: number, puzzleId: string, solved: boolean, daily: string | null = null): AttemptResult | null {
   const puzzle = puzzleById(puzzleId);
   if (!puzzle) return null;
+  const dailyOn = daily && dailyPuzzle(userId, daily)?.id === puzzleId ? daily : null;
   const before = ratingOf(userId);
   const known = db.prepare('SELECT 1 FROM tactics_attempts WHERE user_id = ? AND puzzle_id = ?').get(userId, puzzleId);
-  if (known) return { rated: false, rating_before: before.rating, rating_after: before.rating };
+  if (known) {
+    // Tried it earlier today on the Puzzles tab: it still counts for the day.
+    if (dailyOn) db.prepare('UPDATE tactics_attempts SET daily_on = ? WHERE user_id = ? AND puzzle_id = ? AND daily_on IS NULL').run(dailyOn, userId, puzzleId);
+    return { rated: false, rating_before: before.rating, rating_after: before.rating };
+  }
 
   const next = updateGlicko({
     playerR: before.rating, playerRd: before.rd,
@@ -104,8 +174,8 @@ export function recordAttempt(userId: number, puzzleId: string, solved: boolean)
     score: solved ? 1 : 0,
   });
   db.transaction(() => {
-    db.prepare('INSERT INTO tactics_attempts (user_id, puzzle_id, solved, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)')
-      .run(userId, puzzleId, solved ? 1 : 0, before.rating, next.newR);
+    db.prepare('INSERT INTO tactics_attempts (user_id, puzzle_id, solved, rating_before, rating_after, daily_on) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(userId, puzzleId, solved ? 1 : 0, before.rating, next.newR, dailyOn);
     db.prepare(`
       INSERT INTO tactics_ratings (user_id, rating, rd, best, updated_at) VALUES (@user, @rating, @rd, @best, datetime('now'))
       ON CONFLICT(user_id) DO UPDATE SET rating = @rating, rd = @rd, best = @best, updated_at = datetime('now')

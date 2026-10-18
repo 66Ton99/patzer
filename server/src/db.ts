@@ -270,6 +270,9 @@ db.exec(`CREATE TABLE IF NOT EXISTS tactics_attempts (
   PRIMARY KEY (user_id, puzzle_id)
 )`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_tactics_attempts_user ON tactics_attempts(user_id, created_at DESC)`);
+// The puzzle of the day (Home card): the calendar day an attempt was the
+// daily puzzle on. Days in a row with one make the streak.
+ensureColumn('tactics_attempts', 'daily_on', 'TEXT');
 db.exec(`CREATE TABLE IF NOT EXISTS tactics_ratings (
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   rating REAL NOT NULL,

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as Icons from 'lucide-react';
 import {
   Swords, BookOpen, ChevronRight, Target, Sparkles,
-  ListChecks, Award, ArrowRight, GraduationCap, Star,
+  ListChecks, Award, ArrowRight, GraduationCap, Star, Flame,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../state/auth';
@@ -15,6 +15,7 @@ import type { GameRow } from '../types';
 import { LEARN_QUERY_KEY } from '../components/learn/LessonPlayer';
 import { fetchLearnProgress, suggestedLesson, useLearnContent } from './Learn';
 import { levelOf } from '../learn/engine';
+import { localDay } from '../lib/openingTrainer';
 
 // Home — quieter, more hierarchical than the v7.1 design.
 // One hero (greeting + stats inline + primary action), one "continue" row of
@@ -54,10 +55,6 @@ interface Stats {
   streak: { kind: 'win' | 'loss' | 'draw'; count: number } | null;
 }
 
-interface NextPuzzle {
-  puzzle: { game_id: number; ply: number; played_san: string; classification: string; white: string; black: string } | null;
-}
-
 export default function Home() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -69,10 +66,6 @@ export default function Home() {
   const { data: stats } = useQuery({
     queryKey: ['stats', 'me'],
     queryFn: () => api.get<Stats>('/api/stats/me'),
-  });
-  const { data: nextPuzzle } = useQuery({
-    queryKey: ['train-next'],
-    queryFn: () => api.get<NextPuzzle>('/api/train/next'),
   });
   const { data: planData } = useQuery({
     queryKey: ['plan-home'],
@@ -95,10 +88,8 @@ export default function Home() {
       />
 
       <ContinueRow
-        puzzle={nextPuzzle?.puzzle ?? null}
         goals={planData?.goals ?? null}
         achievements={achievementsData?.achievements ?? null}
-        playerName={user?.profile.display_name ?? ''}
       />
 
       <RecentGames games={games} />
@@ -208,11 +199,9 @@ function StatInline({ value, label, glow }: { value: string; label: string; glow
 
 /* ───────────────────────  CONTINUE YOUR JOURNEY  ───────────────────────── */
 
-function ContinueRow({ puzzle, goals, achievements, playerName }: {
-  puzzle: NextPuzzle['puzzle'];
+function ContinueRow({ goals, achievements }: {
   goals: PlanGoal[] | null;
   achievements: Achievement[] | null;
-  playerName: string;
 }) {
   // Stagger entrance — modest. 60ms between cards, no scale or rotate gimmicks.
   const variants = {
@@ -227,7 +216,7 @@ function ContinueRow({ puzzle, goals, achievements, playerName }: {
           <LearnTile />
         </motion.div>
         <motion.div initial="hidden" animate="show" custom={1} variants={variants}>
-          <PuzzleTile puzzle={puzzle} playerName={playerName} />
+          <DailyPuzzleTile />
         </motion.div>
         <motion.div initial="hidden" animate="show" custom={2} variants={variants}>
           <PlanTile goals={goals} />
@@ -267,34 +256,39 @@ function LearnTile() {
   );
 }
 
-function PuzzleTile({ puzzle, playerName }: { puzzle: NextPuzzle['puzzle']; playerName: string }) {
+interface DailyPuzzle {
+  puzzle: { id: string; rating: number } | null;
+  done: { solved: boolean } | null;
+  streak: number;
+}
+
+/** The puzzle of the day: one puzzle near your rating, the same all day, and
+ *  how many days in a row you've done it (server/src/chess/tactics.ts). */
+function DailyPuzzleTile() {
   const { t } = useTranslation();
-  if (!puzzle) {
-    return (
-      <Link to="/train" className="card-hover flex h-full items-start gap-3 p-4">
-        <Pill tone="muted" Icon={Target} />
-        <div className="min-w-0 flex-1">
-          <Kicker>{t('home.todayPuzzle', { defaultValue: "Today's puzzle" })}</Kicker>
-          <Title>{t('home.puzzleEmpty', { defaultValue: 'No puzzles yet — play a few games' })}</Title>
-          <Sub>{t('home.puzzleEmptyDesc', { defaultValue: 'Puzzles come from your own analyzed blunders.' })}</Sub>
-        </div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-chesscom-400" />
-      </Link>
-    );
-  }
-  const opponent = playerName === puzzle.white ? puzzle.black : puzzle.white;
+  const { data } = useQuery({
+    queryKey: ['tactics-daily'],
+    queryFn: () => api.get<DailyPuzzle>(`/api/tactics/daily?today=${localDay()}`),
+  });
+  const done = data?.done ?? null;
+  const title = !data ? t('home.todayPuzzle')
+    : !data.puzzle ? t('train.puzzles.allDone')
+    : done ? (done.solved ? t('home.dailySolved') : t('home.dailyDone'))
+    : t('home.dailyOpen');
   return (
-    <Link to="/train" className="card-hover flex h-full items-start gap-3 p-4">
-      <Pill tone="mistake" Icon={Target} />
+    <Link to="/train?tab=puzzles&daily=1" className="card-hover flex h-full items-start gap-3 p-4">
+      <Pill tone={done ? 'board' : 'gold'} Icon={Target} />
       <div className="min-w-0 flex-1">
-        <Kicker>{t('home.todayPuzzle', { defaultValue: "Today's puzzle" })}</Kicker>
-        <Title>
-          {t('home.todayPuzzleTitle', {
-            defaultValue: 'You played {{san}}. Find a stronger move.',
-            san: puzzle.played_san,
-          })}
-        </Title>
-        <Sub>{t('home.fromGame', { defaultValue: 'From your game vs {{opp}}', opp: opponent })}</Sub>
+        <div className="flex items-baseline justify-between gap-2">
+          <Kicker>{t('home.todayPuzzle')}</Kicker>
+          {data?.puzzle && <span className="font-mono text-[11px] tabular-nums text-chesscom-500">{data.puzzle.rating}</span>}
+        </div>
+        <Title>{title}</Title>
+        <Sub>
+          {data && data.streak > 0 ? (
+            <span className="inline-flex items-center gap-1"><Flame className="h-3.5 w-3.5 text-gold-600" />{t('home.dailyStreak', { count: data.streak })}</span>
+          ) : t('home.dailyStart')}
+        </Sub>
       </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-chesscom-400" />
     </Link>
