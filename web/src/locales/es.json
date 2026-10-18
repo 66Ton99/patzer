@@ -480,7 +480,9 @@
       "alsoGood": "¡También es fuerte! El motor pensaba en {{best}}.",
       "learned": "Resuelto al primer intento: este problema no volverá.",
       "comesBack": "No al primer intento, así que este problema vuelve mañana.",
-      "solution": "Solución:"
+      "solution": "Solución:",
+      "playedArrow": "Flecha roja: la jugada que hiciste en la partida ({{played}})",
+      "coachTitle": "Por qué {{best}} es mejor que {{played}}"
     }
   },
   "insights": {

@@ -129,6 +129,13 @@ describe('/api/train', () => {
     expect(next.due).toBe(0);
   });
 
+  it('serves what the coach needs to compare your game move with the better one', async () => {
+    // The page shows your move on the board and asks the coach why the
+    // engine's move beats it — with the eval after your move, like Game Review.
+    const next = await call<Next>(`/next?today=${today}`);
+    expect(next.puzzle).toMatchObject({ played_san: 'Qd3', played_uci: 'd2d3', eval_before_cp: 2000, eval_after_cp: 0, best_pv: ['Qxd8+', 'Qxd8', 'Rxd8#'] });
+  });
+
   it('accepts the line, never your own game move', async () => {
     expect(await call('/check', { game_id: 1, ply: 1, step: 0, uci: 'd2d8' })).toEqual({ ok: true });
     expect(await call('/check', { game_id: 1, ply: 1, step: 2, uci: 'd1d8' })).toEqual({ ok: true });

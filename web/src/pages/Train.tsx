@@ -18,29 +18,9 @@ import { useAuth } from '../state/auth';
 import { localDay } from '../lib/openingTrainer';
 import { positionAt, sanAt, type TacticsPuzzle } from '../lib/tactics';
 import { soundForMove, inferMoveFlagsFromSan } from '../lib/sounds';
+import { coachRequest, playedMoveArrow, type GamePuzzle as Puzzle } from '../lib/gamePuzzle';
+import CoachPanel from '../components/CoachPanel';
 
-interface Puzzle {
-  game_id: number;
-  ply: number;
-  fen: string;
-  side_to_move: 'white' | 'black';
-  played_san: string;
-  played_uci: string;
-  best_san: string;
-  best_uci: string;
-  best_pv: string[];
-  /** The solution: your move, their reply, your move … (UCI / SAN). */
-  line: string[];
-  line_san: string[];
-  classification: string;
-  centipawn_loss: number;
-  eval_before_cp: number | null;
-  end_time: string | null;
-  white: string;
-  black: string;
-  /** Tried before and not solved: back for review. */
-  review: boolean;
-}
 
 interface Stats { total: number; solved: number; failed: number; accuracy: number; due: number }
 
@@ -277,16 +257,26 @@ function OwnPuzzle({ puzzle, onNext }: { puzzle: Puzzle; onNext: () => void }) {
     setStatus('shown');
   }
 
-  const arrows = useMemo(() => {
-    if (!yourTurn || hint === 'none') return [];
-    const uci = puzzle.line[n]!;
-    return hint === 'piece'
-      ? [{ orig: uci.slice(0, 2), brush: 'paleBlue' }]
-      : [{ orig: uci.slice(0, 2), dest: uci.slice(2, 4), brush: 'paleBlue' }];
-  }, [yourTurn, hint, puzzle, n]);
-
   const finished = status === 'solved' || (status === 'shown' && done);
   const shown = alt ?? trying;
+  // The move you played in the game stays on the board as a red arrow while
+  // the puzzle position is, so you don't have to work out which move it was.
+  const played = playedMoveArrow(puzzle, n === 0 && !shown);
+
+  const arrows = useMemo(() => {
+    const own = played ? [played] : [];
+    if (!yourTurn || hint === 'none') return own;
+    const uci = puzzle.line[n]!;
+    return [...own, hint === 'piece'
+      ? { orig: uci.slice(0, 2), brush: 'paleBlue' }
+      : { orig: uci.slice(0, 2), dest: uci.slice(2, 4), brush: 'paleBlue' }];
+  }, [played, yourTurn, hint, puzzle, n]);
+
+  const { data: coach } = useQuery({
+    queryKey: ['coach-status'],
+    queryFn: () => api.get<{ configured: boolean }>('/api/coach/status'),
+    staleTime: 5 * 60_000,
+  });
   const boardFen = shown?.fen ?? pos.fen;
   const lastMove = shown?.lastMove ?? pos.lastMove;
 
@@ -322,6 +312,11 @@ function OwnPuzzle({ puzzle, onNext }: { puzzle: Puzzle; onNext: () => void }) {
           <div className="mt-1 text-sm text-chesscom-700 dark:text-chesscom-200">
             {t('train.taskBody', { defaultValue: 'In the actual game you played {{played}}. Find a stronger move.', played: puzzle.played_san })}
             {ownMoves > 1 && <> {t('train.mine.moves', { count: ownMoves })}</>}
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-xs text-chesscom-500">
+            {/* The colour of the board's red arrow (chessground's `red` brush). */}
+            <span aria-hidden="true" className="h-1 w-5 shrink-0 rounded bg-[#882020]" />
+            {t('train.mine.playedArrow', { played: puzzle.played_san })}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-chesscom-500">
             <span className={`badge ${tagTone(puzzle.classification)}`}>{puzzle.classification}</span>
@@ -392,6 +387,23 @@ function OwnPuzzle({ puzzle, onNext }: { puzzle: Puzzle; onNext: () => void }) {
             </div>
           )}
         </div>
+
+        {/* Once it's over (never before — it would give the answer away): the
+            coach on why the engine's move beats the one you played. */}
+        {finished && (
+          <div className="card p-4">
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-chesscom-500">
+              {t('train.mine.coachTitle', { best: puzzle.best_san, played: puzzle.played_san })}
+            </div>
+            <CoachPanel
+              systemConfigured={coach?.configured ?? false}
+              request={() => coachRequest(puzzle)}
+              autoPlay
+              triggerKey={`${puzzle.game_id}:${puzzle.ply}`}
+              compact
+            />
+          </div>
+        )}
 
         <Link to={`/review/${puzzle.game_id}?ply=${puzzle.ply}`} className="card-hover flex items-center gap-2 p-3 text-xs">
           <BookOpen className="h-4 w-4 text-chesscom-400" />
