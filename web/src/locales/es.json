@@ -407,7 +407,8 @@
     "sendTestEmail": "Enviar correo de prueba",
     "sendTestEmailHint": "Guarda primero — la prueba utilizará la configuración guardada.",
     "send": "Enviar",
-    "testEmailSent": "Correo de prueba enviado."
+    "testEmailSent": "Correo de prueba enviado.",
+    "modelMissing": "{{model}} (no está en este servidor)"
   },
   "palette": {
     "switchLanguage": "Cambiar a",
@@ -459,7 +460,28 @@
     "nextPuzzle": "Siguiente problema",
     "openInReview": "Abrir esta posición en el análisis completo",
     "correct": "¡Correcto!",
-    "wrong": "Casi — el motor prefiere"
+    "wrong": "Casi — el motor prefiere",
+    "puzzles": {
+      "allDone": "Has probado todos los problemas de aquí – ¡impresionante!",
+      "daily": {
+        "title": "Problema del día",
+        "more": "Más problemas",
+        "already": "Este ya lo hiciste hoy: repetirlo no cambia tu puntuación ni tu racha."
+      }
+    },
+    "mine": {
+      "review": "Repaso",
+      "dueLabel": "Para hoy",
+      "moves_one": "La solución tiene {{count}} jugada.",
+      "moves_other": "La solución tiene {{count}} jugadas.",
+      "yourMove": "Te toca. ¡Encuentra la mejor jugada!",
+      "goOn": "¡Bien! Sigue …",
+      "checking": "El motor está mirando tu jugada …",
+      "alsoGood": "¡También es fuerte! El motor pensaba en {{best}}.",
+      "learned": "Resuelto al primer intento: este problema no volverá.",
+      "comesBack": "No al primer intento, así que este problema vuelve mañana.",
+      "solution": "Solución:"
+    }
   },
   "insights": {
     "title": "Estadísticas",
@@ -600,8 +622,12 @@
     "statStreak": "Racha",
     "acrossAnalyzed": "en partidas analizadas",
     "todayPuzzle": "Problema del día",
-    "todayPuzzleTitle": "Jugaste {{san}}. Encuentra una jugada mejor.",
-    "fromGame": "De tu partida contra {{opp}}",
+    "dailyOpen": "Te espera un problema nuevo",
+    "dailySolved": "Resuelto – ¡hasta mañana!",
+    "dailyDone": "Hecho – el siguiente llega mañana",
+    "dailyStreak_one": "{{count}} día seguido",
+    "dailyStreak_other": "{{count}} días seguidos",
+    "dailyStart": "Uno al día, y empieza tu racha",
     "topOpening": "Tu apertura principal",
     "recentGames": "Partidas recientes",
     "viewAll": "Ver todas →",

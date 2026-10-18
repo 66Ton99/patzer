@@ -539,6 +539,7 @@
     "fail": "FAIL",
     "loadingModels": "Loading models from {{provider}}…",
     "noModels": "No models loaded — set the URL above and click Test, or type a model name manually.",
+    "modelMissing": "{{model}} (not on this server)",
     "runtime": "Runtime",
     "refresh": "refresh",
     "lastModel": "Last model used",
@@ -618,6 +619,19 @@
     "openInReview": "Open this position in the full review",
     "correct": "Correct!",
     "wrong": "Not quite — the engine prefers",
+    "mine": {
+      "review": "Review",
+      "dueLabel": "Due",
+      "moves_one": "The solution has {{count}} move.",
+      "moves_other": "The solution has {{count}} moves.",
+      "yourMove": "Your move. Find the best one!",
+      "goOn": "Good! Keep going …",
+      "checking": "The engine is looking at your move …",
+      "alsoGood": "Also strong! The engine had {{best}} in mind.",
+      "learned": "Solved at the first try — this one won't come back.",
+      "comesBack": "Not at the first try, so this puzzle comes back tomorrow.",
+      "solution": "Solution:"
+    },
     "tabs": {
       "mine": "From your games",
       "puzzles": "Puzzles"
@@ -657,6 +671,11 @@
         "hanging": "Hanging & trapped pieces",
         "defence": "Defence",
         "endgame": "Endgame"
+      },
+      "daily": {
+        "title": "Puzzle of the day",
+        "more": "More puzzles",
+        "already": "You did this one today — trying again doesn’t change your rating or your streak."
       }
     }
   },
@@ -1064,8 +1083,12 @@
     "statStreak": "Streak",
     "acrossAnalyzed": "across analyzed games",
     "todayPuzzle": "Today's puzzle",
-    "todayPuzzleTitle": "You played {{san}}. Find a stronger move.",
-    "fromGame": "From your game vs {{opp}}",
+    "dailyOpen": "A new puzzle is waiting",
+    "dailySolved": "Solved — see you tomorrow",
+    "dailyDone": "Done — the next one comes tomorrow",
+    "dailyStreak_one": "{{count}} day in a row",
+    "dailyStreak_other": "{{count}} days in a row",
+    "dailyStart": "One a day, and your streak begins",
     "topOpening": "Your top opening",
     "recentGames": "Recent games",
     "viewAll": "View all →",
@@ -1088,8 +1111,6 @@
       "loss": "loss streak",
       "draw": "draw streak"
     },
-    "puzzleEmpty": "No puzzles yet — play a few games",
-    "puzzleEmptyDesc": "Puzzles come from your own analyzed blunders.",
     "unreviewed": "unreviewed",
     "learnNext": "Your next lesson",
     "learnResume": "Continue where you left off",
