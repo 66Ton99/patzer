@@ -9,6 +9,9 @@
 //   - move_quality       how often each move classification was yours,
 //                        plus your most recent brilliant moves
 //
+// Games played from a position (games.start_fen) are left out: they never
+// had an opening, and a won position would flatter the numbers.
+//
 // All templated (no LLM); fast page render.
 
 import { Hono } from 'hono';
@@ -54,7 +57,7 @@ router.get('/', (c) => {
            COUNT(*) AS games,
            SUM(CASE WHEN result='win' THEN 1 ELSE 0 END) AS wins
     FROM games
-    WHERE user_id = ? AND end_time IS NOT NULL
+    WHERE user_id = ? AND end_time IS NOT NULL AND start_fen IS NULL
       AND end_time >= datetime('now','-365 days')
     GROUP BY day
     ORDER BY day ASC
@@ -90,7 +93,7 @@ router.get('/', (c) => {
                     WHEN g.user_color='black' AND a.scoring_version >= ? THEN a.accuracy_black
                     ELSE NULL END) AS avg_acc
     FROM games g LEFT JOIN analyses a ON a.game_id = g.id
-    WHERE g.user_id = ? AND g.result IS NOT NULL
+    WHERE g.user_id = ? AND g.result IS NOT NULL AND g.start_fen IS NULL
     GROUP BY g.time_class
   `).all(SCORING_VERSION, SCORING_VERSION, me.id) as TcRow[];
   const time_class_stats: Record<string, { games: number; wins: number; draws: number; losses: number; avg_accuracy: number | null }> = {};
@@ -112,7 +115,7 @@ router.get('/', (c) => {
            g.eco, g.opening_name, a.moves_json, a.phase_split_json, g.white, g.black,
            CASE WHEN g.user_color='white' THEN a.accuracy_white ELSE a.accuracy_black END AS accuracy_user
     FROM analyses a JOIN games g ON g.id = a.game_id
-    WHERE g.user_id = ? AND a.scoring_version >= ?
+    WHERE g.user_id = ? AND a.scoring_version >= ? AND g.start_fen IS NULL
     ORDER BY g.end_time DESC, g.id DESC
     LIMIT ?
   `).all(me.id, SCORING_VERSION, limit) as AnalysisRow[];

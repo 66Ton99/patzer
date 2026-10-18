@@ -92,6 +92,8 @@ export interface GameRow {
   performance_black: number | null;
   bookmarked: number | null;
   notes: string | null;
+  /** 1 for a game played from a position (Game Review / Lab → "Play from here"). */
+  from_position?: number;
 }
 
 export interface RatingRow {

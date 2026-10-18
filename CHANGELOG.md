@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Play from here (roadmap #13).** In Game Review, the move card has a
+  "Play from here against Patzer" button at every move: it starts a bot game
+  from the position on the board. You play your own colour, and when it's
+  the other side's turn Patzer moves first; to redo a slip, pick the move
+  before it. The Lab has the same button for the position on its board, with
+  the colour at the bottom of the board. Before the game starts you can
+  still switch colour, and pick the bot's strength and the clock. The game is saved like
+  any bot game — unrated, marked "from a position" in the game list and in
+  Game Review, and kept out of the opening tree, the opening trainer's
+  repertoire and Insights (`games.start_fen`). A game from a position always
+  starts with white to move, so for a black move it starts one move earlier
+  and Patzer first replays the move before it.
+
+### Fixed
+
+- Lab: "Start" in the move list went back to the normal starting position
+  even after you had set a FEN; it now goes back to your position.
+
 - **Puzzle of the day, with a streak (roadmap #12).** The "Today's puzzle"
   card on Home is now one puzzle from the Lichess set, picked near your puzzle
   rating — the same puzzle all day, a new one tomorrow. Next to it a plain

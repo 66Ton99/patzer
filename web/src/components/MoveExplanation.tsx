@@ -6,6 +6,8 @@
 // would have achieved.
 
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import { Swords } from 'lucide-react';
 import { CLASS_STYLE, GLYPH_SVG } from '../lib/classification';
 import CoachPanel from './CoachPanel';
 import type { AnalyzedMove } from '../types';
@@ -33,9 +35,12 @@ interface Props {
   userColor: 'white' | 'black' | null;
   coachConfigured: boolean;
   coachRequest: (() => { url: string; body: Record<string, unknown> }) | null;
+  /** "Play from here" link for the position after this move (the one on the
+   *  board): play on against Patzer. Absent once the game is over. */
+  playFrom?: string;
 }
 
-export default function MoveExplanation({ move, userColor, coachConfigured, coachRequest }: Props) {
+export default function MoveExplanation({ move, userColor, coachConfigured, coachRequest, playFrom }: Props) {
   const { t } = useTranslation();
   const s = CLASS_STYLE[move.classification];
   const side = move.ply % 2 === 1 ? 'white' : 'black';
@@ -77,6 +82,12 @@ export default function MoveExplanation({ move, userColor, coachConfigured, coac
             <div className="mt-0.5 font-mono text-[11px] text-chesscom-500">{t('review.why.line')}: {line}</div>
           )}
         </div>
+      )}
+
+      {playFrom && (
+        <Link to={playFrom} className="btn-secondary mt-2 w-full text-xs">
+          <Swords className="h-3.5 w-3.5" /> {t('review.why.playFromHere')}
+        </Link>
       )}
 
       <div className="mt-3 border-t border-chesscom-200 pt-2 dark:border-chesscom-700">

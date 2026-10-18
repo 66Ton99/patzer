@@ -206,6 +206,7 @@ function GameCard({ g }: { g: GameRow }) {
             <span>{new Date(g.end_time).toLocaleDateString()}</span>
             <span>·</span>
             <span>{t(`review.source.${g.source}`, { defaultValue: g.source })}</span>
+            {!!g.from_position && <span className="rounded-full bg-chesscom-100 px-2 py-0.5 text-[11px] dark:bg-chesscom-800">{t('review.fromPosition')}</span>}
             {g.notes && <span className="ml-1 italic text-chesscom-400">· {t('review.hasNote')}</span>}
           </div>
         </div>

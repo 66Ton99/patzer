@@ -31,7 +31,7 @@ router.get('/', (c) => {
     SELECT g.id, g.source, g.external_id, g.white, g.black, g.result, g.time_control, g.time_class,
            g.eco, g.opening_name, g.end_time, g.user_color, g.rated,
            g.user_rating_after, g.opponent_rating_after,
-           g.bookmarked, g.notes,
+           g.bookmarked, g.notes, g.start_fen IS NOT NULL AS from_position,
            CASE WHEN a.game_id IS NOT NULL AND a.scoring_version >= ? THEN 1 ELSE 0 END as analyzed,
            CASE WHEN a.scoring_version >= ? THEN a.accuracy_white ELSE NULL END as accuracy_white,
            CASE WHEN a.scoring_version >= ? THEN a.accuracy_black ELSE NULL END as accuracy_black,

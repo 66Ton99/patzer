@@ -123,6 +123,10 @@ ensureColumn('analyses', 'estimated_elo_black', 'INTEGER');
 ensureColumn('analyses', 'scoring_version', `INTEGER NOT NULL DEFAULT 1`);
 ensureColumn('profiles', 'site_theme', `TEXT NOT NULL DEFAULT 'auto'`);
 ensureColumn('profiles', 'blunder_warning', `INTEGER NOT NULL DEFAULT 0`);
+// A game played from a position (Game Review → "Play from here"): the FEN it
+// started from. Such games are saved but kept out of the opening tree and
+// Insights — they never had an opening.
+ensureColumn('games', 'start_fen', 'TEXT');
 ensureColumn('profiles', 'sound_enabled', `INTEGER NOT NULL DEFAULT 1`);
 // v7.5.0 — "Living pieces" for kid profiles. When on, the board shows mood
 // bubbles over the viewer's pieces (hero / stressed / guarding / sleeping)
