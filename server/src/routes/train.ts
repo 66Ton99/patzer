@@ -60,6 +60,8 @@ function toPuzzle(r: PuzzleCandidate, m: AnalyzedMove, review: boolean) {
     classification: m.classification,
     centipawn_loss: m.centipawn_loss,
     eval_before_cp: m.eval_before_cp,
+    // For the coach's "why the engine's move beats yours" (as in Game Review).
+    eval_after_cp: m.eval_after_cp,
     end_time: r.end_time,
     white: r.white,
     black: r.black,

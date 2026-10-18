@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Train → From your games: your move on the board, and why the better one
+  is better.** The move you played in the game is drawn as a red arrow on the
+  puzzle position, so you no longer have to work out from "you played Qd3"
+  which move that was. Once the puzzle is over (solved, or the solution
+  shown — never before), the coach explains in plain words why the engine's
+  move beats the one you played: the same engine-checked explanation as in
+  Game Review, in your language and pitched at your audience setting.
+
+### Added
+
 - **Play from here (roadmap #13).** In Game Review, the move card has a
   "Play from here against Patzer" button at every move: it starts a bot game
   from the position on the board. You play your own colour, and when it's

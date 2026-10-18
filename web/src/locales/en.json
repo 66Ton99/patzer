@@ -630,7 +630,9 @@
       "alsoGood": "Also strong! The engine had {{best}} in mind.",
       "learned": "Solved at the first try — this one won't come back.",
       "comesBack": "Not at the first try, so this puzzle comes back tomorrow.",
-      "solution": "Solution:"
+      "solution": "Solution:",
+      "playedArrow": "Red arrow: the move you played in the game ({{played}})",
+      "coachTitle": "Why {{best}} is better than {{played}}"
     },
     "tabs": {
       "mine": "From your games",

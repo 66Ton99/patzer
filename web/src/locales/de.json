@@ -630,7 +630,9 @@
       "alsoGood": "Auch stark! Die Engine hatte {{best}} im Sinn.",
       "learned": "Im ersten Versuch gelöst – diese Aufgabe kommt nicht wieder.",
       "comesBack": "Nicht im ersten Versuch – deshalb kommt diese Aufgabe morgen noch einmal.",
-      "solution": "Lösung:"
+      "solution": "Lösung:",
+      "playedArrow": "Roter Pfeil: dein Zug in der Partie ({{played}})",
+      "coachTitle": "Warum {{best}} besser ist als {{played}}"
     },
     "tabs": {
       "mine": "Aus deinen Partien",
