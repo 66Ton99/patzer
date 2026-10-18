@@ -443,7 +443,8 @@
     "sendTestEmail": "Изпрати тестов имейл",
     "sendTestEmailHint": "Първо запазете — тестът използва запазените настройки.",
     "send": "Изпрати",
-    "testEmailSent": "Тестовият имейл е изпратен."
+    "testEmailSent": "Тестовият имейл е изпратен.",
+    "modelMissing": "{{model}} (няма го на този сървър)"
   },
   "palette": {
     "switchLanguage": "Превключи на",
