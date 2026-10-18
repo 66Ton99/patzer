@@ -210,6 +210,11 @@ db.exec(`CREATE TABLE IF NOT EXISTS puzzle_attempts (
 )`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_puzzle_attempts_user ON puzzle_attempts(user_id, created_at DESC)`);
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_puzzle_attempts_unique ON puzzle_attempts(user_id, game_id, ply)`);
+// Review queue (chess/gamePuzzles.ts): a puzzle not solved at the first try
+// comes back on `due_on`; `last_day` is the calendar day of the last try that
+// counted. Older rows have neither: a failed one is simply due.
+ensureColumn('puzzle_attempts', 'due_on', 'TEXT');
+ensureColumn('puzzle_attempts', 'last_day', 'TEXT');
 
 // Opening trainer — every move the user missed while practising a line, and
 // when it is due in the daily review queue (see chess/openingTrainer.ts).

@@ -22,6 +22,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Home card no longer shows the next puzzle from your own games; those
   are where they were, on Train → From your games.
 
+### Changed
+
+- **Train → From your games: puzzles come back, and go on.** A puzzle you
+  don't solve at the first try used to be gone for good as soon as "Try
+  again" worked. Now it comes back the next day, marked *Review*, with the
+  same simple daily queue as the opening trainer: solved at the first try on
+  a later day, it's done; missed again, it's back tomorrow. Trying again the
+  same day is practice and changes nothing. The header shows how many are due.
+- **Longer solutions.** When the engine's line goes on with forcing moves —
+  a check, a capture, a promotion, a mate — the puzzle goes on too: the
+  opponent's reply is played for you and you find your next move, up to three
+  of yours ("The solution has 2 moves."). A quiet move ends it.
+- **A good move is never "wrong".** A move that isn't the engine's but is just
+  as good (the engine checks it: within 2 % win chance, what Patzer calls
+  *excellent*) counts as solved — "Also strong! The engine had exd5 in mind."
+  Any checkmate counts too; your own move from the game never does.
+- Same hint / show-solution buttons as the Lichess puzzles: first the piece,
+  then the move; "Show solution" plays the line, and you can replay it.
+
+### Fixed
+
+- **Admin → System: a saved AI model the server doesn't have.** When the
+  saved model wasn't in the list the server sent back (another URL, or the
+  model was removed), the dropdown showed the first model in the list while
+  the old one stayed saved — and with only one model there was nothing to
+  pick, so Save kept the missing model and the coach failed with a 404. The
+  saved model now shows as its own entry, marked "not on this server".
+
+
 ## [7.18.1] — 2026-10-05
 
 ### Moves land the instant you drop them

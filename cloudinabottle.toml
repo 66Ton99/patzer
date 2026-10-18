@@ -1,0 +1,23 @@
+# Cloud in a Bottle deployment manifest (cloudinabottle.org catalog).
+# Docs: https://cloudinabottle.org/docs/creating_an_app/manifest_spec.html
+# Lets Patzer be installed one-click from the Cloud in a Bottle catalog.
+
+[app]
+name = "patzer"
+version = "7.18.1"
+description = "Your private Chess.com — self-hosted, AI-coached, family-friendly. Game review of your Chess.com & Lichess games, play vs Stockfish or a friend, lessons + opening trainer, AI coach on your own Ollama/vLLM, EN·BG·ES·DE·RU, one Docker container."
+authors = ["Arsen Apostolov"]
+
+[runtime.container]
+image = "Dockerfile"
+port = 8800
+
+[routing]
+health_check = "/api/health"
+
+[resources]
+memory_mb = 512
+cpu_cores = 1.0
+
+[data]
+app_data = true
