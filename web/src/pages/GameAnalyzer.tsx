@@ -21,10 +21,11 @@ import ExplorerPanel from '../components/ExplorerPanel';
 import { soundForMove, inferMoveFlagsFromSan } from '../lib/sounds';
 import { api } from '../api';
 import { useAuth } from '../state/auth';
+import { parseFromPosition, playFromPosition, playFromUrl } from '../lib/fromPosition';
 import type { AnalysisResult, AnalyzedMove, KeyMomentSummary, PhaseSplit } from '../types';
 
 interface GameDetail {
-  game: { id: number; pgn: string; white: string; black: string; result: string; user_color: 'white' | 'black' | null; eco?: string | null; opening_name?: string | null; bookmarked?: number | null; notes?: string | null };
+  game: { id: number; pgn: string; white: string; black: string; result: string; user_color: 'white' | 'black' | null; eco?: string | null; opening_name?: string | null; bookmarked?: number | null; notes?: string | null; start_fen?: string | null };
   analysis: {
     depth: number; accuracy_white: number; accuracy_black: number;
     estimated_elo_white: number | null; estimated_elo_black: number | null;
@@ -131,11 +132,13 @@ export default function GameAnalyzer() {
     const chess = new Chess();
     chess.loadPgn(data.game.pgn, { strict: false });
     const history = chess.history({ verbose: true });
-    const replay = new Chess();
-    const list: { fen: string; san?: string; from?: string; to?: string }[] = [{ fen: replay.fen() }];
+    // A game played from a position starts there, not at the opening.
+    const headers = chess.getHeaders();
+    const replay = new Chess(headers.SetUp === '1' && headers.FEN ? headers.FEN : undefined);
+    const list: { fen: string; san?: string; from?: string; to?: string; uci?: string }[] = [{ fen: replay.fen() }];
     for (const m of history) {
       replay.move({ from: m.from, to: m.to, promotion: m.promotion });
-      list.push({ fen: replay.fen(), san: m.san, from: m.from, to: m.to });
+      list.push({ fen: replay.fen(), san: m.san, from: m.from, to: m.to, uci: m.from + m.to + (m.promotion ?? '') });
     }
     return list;
   }, [data]);
@@ -228,6 +231,13 @@ export default function GameAnalyzer() {
 
   const move: AnalyzedMove | undefined = analysis?.moves[ply - 1];
   const userColor = data.game.user_color ?? 'white';
+  // "Play from here" (in the move card): the position on the board, at any
+  // move — you keep your colour and Patzer takes the other side. To redo a
+  // slip, you pick the move before it. Not once the game is over.
+  const playOnFrom = playFromPosition(positions, ply + 1);
+  const playOnColor = data.game.user_color ?? undefined;
+  const playOn = playOnFrom && parseFromPosition(playOnFrom.fen, playOnFrom.moves.join(','), playOnColor ?? null)
+    ? playFromUrl(playOnFrom, playOnColor) : null;
   const orientation: 'white' | 'black' = flipped
     ? (userColor === 'white' ? 'black' : 'white')
     : userColor;
@@ -305,6 +315,7 @@ export default function GameAnalyzer() {
           <span className="font-medium text-chesscom-900 dark:text-chesscom-100">{data.game.white}</span> vs{' '}
           <span className="font-medium text-chesscom-900 dark:text-chesscom-100">{data.game.black}</span>
           <span className="ml-2">· {data.game.result}</span>
+          {data.game.start_fen && <span className="ml-2 rounded-full bg-chesscom-100 px-2 py-0.5 text-[11px] dark:bg-chesscom-800">{t('review.fromPosition')}</span>}
         </div>
       </div>
 
@@ -486,6 +497,7 @@ export default function GameAnalyzer() {
                       userColor={data.game.user_color}
                       coachConfigured={coachConfigured}
                       coachRequest={coachReq}
+                      playFrom={playOn ?? undefined}
                     />
                   )}
                   {tab === 'moves' && (

@@ -12,6 +12,7 @@ import {
 import { gameAccuracy, type MoveAccPoint } from '../chess/accuracy.js';
 import { extractKeyMoments } from '../chess/keyMoments.js';
 import { lookupOpeningByEpd, fenToEpd, lookupOpeningFromPgn } from '../chess/openings.js';
+import { startFenOf } from '../chess/startFen.js';
 import type { AnalysisResult, AnalyzedMove, Color, KeyMomentSummary, PhaseSplit } from '../types.js';
 
 const router = new Hono();
@@ -262,8 +263,9 @@ export async function analyzePgnFull(
   // is reused across plies of *this* PGN but should start fresh per game).
   await engine.newGame();
 
-  // Replay through positions
-  const replay = new Chess();
+  // Replay through positions — from the game's own start for a game played
+  // from a position.
+  const replay = new Chess(startFenOf(chess));
   const moves: AnalyzedMove[] = [];
 
   // Pre-evaluate starting position with MultiPV=3 so we can detect "Great"

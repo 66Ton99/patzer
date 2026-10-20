@@ -109,7 +109,7 @@ function treeGames(userId: number): GameRow[] {
     SELECT g.pgn, g.user_color, g.result,
            CASE WHEN g.user_color='white' THEN a.accuracy_white ELSE a.accuracy_black END AS accuracy_user
     FROM analyses a JOIN games g ON g.id = a.game_id
-    WHERE g.user_id = ? AND a.scoring_version >= ?
+    WHERE g.user_id = ? AND a.scoring_version >= ? AND g.start_fen IS NULL
     ORDER BY g.end_time DESC, g.id DESC
   `).all(userId, SCORING_VERSION) as GameRow[];
 }
@@ -216,7 +216,7 @@ router.get('/trainer/repertoire', (c) => {
   const rows = db.prepare(`
     SELECT g.pgn, g.user_color, a.moves_json
     FROM analyses a JOIN games g ON g.id = a.game_id
-    WHERE g.user_id = ? AND a.scoring_version >= ?
+    WHERE g.user_id = ? AND a.scoring_version >= ? AND g.start_fen IS NULL
     ORDER BY g.end_time DESC, g.id DESC
   `).all(me.id, SCORING_VERSION) as { pgn: string; user_color: Color | null; moves_json: string }[];
   const byColor: Record<Color, { games: string[][]; flawed: boolean[][]; best: (string | null)[][] }> = {

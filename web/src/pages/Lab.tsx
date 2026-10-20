@@ -4,16 +4,18 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { Chess } from 'chess.js';
 import {
-  Microscope, RotateCcw, FlipVertical2, Wand2, Loader2,
+  Microscope, RotateCcw, FlipVertical2, Wand2, Loader2, Swords,
 } from 'lucide-react';
 import ChessBoard from '../components/ChessBoard';
 import ThreatPanel from '../components/ThreatPanel';
 import ExplorerPanel from '../components/ExplorerPanel';
 import { api } from '../api';
 import { useAuth } from '../state/auth';
+import { parseFromPosition, playFromPosition, playFromUrl } from '../lib/fromPosition';
 
 interface AnalyzeLine {
   uci: string;
@@ -33,6 +35,7 @@ interface AnalyzeResponse {
 interface HistoryEntry {
   fen: string;       // FEN AFTER this move
   san: string;       // the move played to reach this fen
+  uci: string;       // the same move as UCI
 }
 
 export default function Lab() {
@@ -49,6 +52,8 @@ export default function Lab() {
 
   // Authoritative game state lives in a ref to avoid stale closures.
   const chessRef = useRef<Chess>(chess);
+  // Where the move list starts: the FEN you set, or the normal start.
+  const startFenRef = useRef(chess.fen());
 
   // Counter forces re-renders / ChessBoard re-sync since chess.js mutates.
   const [tick, setTick] = useState(0);
@@ -64,6 +69,17 @@ export default function Lab() {
 
   const fen = chessRef.current.fen();
   const turn = chessRef.current.turn() === 'w' ? 'white' : 'black';
+
+  // "Play from here": you play the side at the bottom of the board (the Play
+  // page lets you switch). A game from a position starts with white to move
+  // (server/src/chess/startFen.ts), so with black to move it starts one move
+  // earlier and replays the move you made here — when there is one.
+  const playFrom = useMemo(() => {
+    const positions = [{ fen: startFenRef.current }, ...history.slice(0, historyIndex)];
+    const from = playFromPosition(positions, historyIndex + 1);
+    // The Lab also takes made-up positions; only a legal, unfinished one plays.
+    return from && parseFromPosition(from.fen, from.moves.join(',')) ? from : undefined;
+  }, [history, historyIndex, tick]);
 
   const analyze = useMutation({
     mutationFn: () => api.post<AnalyzeResponse>('/api/analyze/position', { fen, depth, lines }),
@@ -81,7 +97,7 @@ export default function Lab() {
       // If we're not at the tip, truncate forward history first.
       setHistory((prev) => {
         const trimmed = prev.slice(0, historyIndex);
-        return [...trimmed, { fen: chessRef.current.fen(), san: move.san }];
+        return [...trimmed, { fen: chessRef.current.fen(), san: move.san, uci: move.from + move.to + (move.promotion ?? '') }];
       });
       setHistoryIndex((i) => i + 1);
       bump();
@@ -93,6 +109,7 @@ export default function Lab() {
 
   function resetBoard() {
     chessRef.current = new Chess();
+    startFenRef.current = chessRef.current.fen();
     setHistory([]);
     setHistoryIndex(0);
     analyze.reset();
@@ -109,6 +126,7 @@ export default function Lab() {
     try {
       const test = new Chess(trimmed);
       chessRef.current = test;
+      startFenRef.current = test.fen();
       setHistory([]);
       setHistoryIndex(0);
       analyze.reset();
@@ -121,7 +139,7 @@ export default function Lab() {
 
   function gotoPly(index: number) {
     // Reconstruct chess at the given history position by replaying.
-    const replay = new Chess();
+    const replay = new Chess(startFenRef.current, { skipValidation: true });
     for (let i = 0; i < index; i++) {
       const entry = history[i];
       if (!entry) break;
@@ -208,6 +226,13 @@ export default function Lab() {
                 {fen}
               </div>
             </div>
+            {playFrom ? (
+              <Link to={playFromUrl(playFrom, orientation)} className="btn-secondary w-full text-sm">
+                <Swords className="h-4 w-4" /> {t('lab.playFromHere')}
+              </Link>
+            ) : turn === 'black' && (
+              <div className="text-xs text-chesscom-500">{t('lab.playFromHint')}</div>
+            )}
           </div>
         </section>
 

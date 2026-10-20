@@ -123,6 +123,10 @@ ensureColumn('analyses', 'estimated_elo_black', 'INTEGER');
 ensureColumn('analyses', 'scoring_version', `INTEGER NOT NULL DEFAULT 1`);
 ensureColumn('profiles', 'site_theme', `TEXT NOT NULL DEFAULT 'auto'`);
 ensureColumn('profiles', 'blunder_warning', `INTEGER NOT NULL DEFAULT 0`);
+// A game played from a position (Game Review → "Play from here"): the FEN it
+// started from. Such games are saved but kept out of the opening tree and
+// Insights — they never had an opening.
+ensureColumn('games', 'start_fen', 'TEXT');
 ensureColumn('profiles', 'sound_enabled', `INTEGER NOT NULL DEFAULT 1`);
 // v7.5.0 — "Living pieces" for kid profiles. When on, the board shows mood
 // bubbles over the viewer's pieces (hero / stressed / guarding / sleeping)
@@ -210,6 +214,11 @@ db.exec(`CREATE TABLE IF NOT EXISTS puzzle_attempts (
 )`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_puzzle_attempts_user ON puzzle_attempts(user_id, created_at DESC)`);
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_puzzle_attempts_unique ON puzzle_attempts(user_id, game_id, ply)`);
+// Review queue (chess/gamePuzzles.ts): a puzzle not solved at the first try
+// comes back on `due_on`; `last_day` is the calendar day of the last try that
+// counted. Older rows have neither: a failed one is simply due.
+ensureColumn('puzzle_attempts', 'due_on', 'TEXT');
+ensureColumn('puzzle_attempts', 'last_day', 'TEXT');
 
 // Opening trainer — every move the user missed while practising a line, and
 // when it is due in the daily review queue (see chess/openingTrainer.ts).
@@ -265,6 +274,9 @@ db.exec(`CREATE TABLE IF NOT EXISTS tactics_attempts (
   PRIMARY KEY (user_id, puzzle_id)
 )`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_tactics_attempts_user ON tactics_attempts(user_id, created_at DESC)`);
+// The puzzle of the day (Home card): the calendar day an attempt was the
+// daily puzzle on. Days in a row with one make the streak.
+ensureColumn('tactics_attempts', 'daily_on', 'TEXT');
 db.exec(`CREATE TABLE IF NOT EXISTS tactics_ratings (
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   rating REAL NOT NULL,

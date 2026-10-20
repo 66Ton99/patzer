@@ -178,7 +178,12 @@
       "discard": "Verwerfen"
     },
     "reconnecting": "Verbindung wird wiederhergestellt… deine Partie ist gespeichert.",
-    "subtitle": "Wähle einen Bot oder fordere einen Freund heraus."
+    "subtitle": "Wähle einen Bot oder fordere einen Freund heraus.",
+    "fromPosition": {
+      "title": "Ab dieser Stellung spielen",
+      "desc": "Du spielst: {{color}}. Die Partie wird gespeichert, zählt aber nicht für die Wertung, deine Eröffnungen und die Statistik.",
+      "normal": "Lieber eine normale Partie"
+    }
   },
   "review": {
     "title": "Partieanalyse",
@@ -291,9 +296,11 @@
       "inaccuracy": "Eine Ungenauigkeit: Die Gewinnchance sank um {{drop}} % ({{before}} % → {{after}} %), etwa {{pawns}} Bauern. Keine Katastrophe, aber es gab einen klar besseren Zug.",
       "mistake": "Ein Fehler: Die Gewinnchance sank um {{drop}} % ({{before}} % → {{after}} %), etwa {{pawns}} Bauern — ein guter Teil des Vorteils ist weg.",
       "blunder": "Ein Patzer: Die Gewinnchance brach um {{drop}} % ein ({{before}} % → {{after}} %), etwa {{pawns}} Bauern. Solche Züge verlieren meist Material oder erlauben einen entscheidenden Angriff.",
-      "miss": "Verpasst: Die Stellung war gewonnen ({{before}} % Gewinnchance), und dieser Zug ließ den Sieg entgleiten ({{after}} %). Es gab einen viel stärkeren Zug."
+      "miss": "Verpasst: Die Stellung war gewonnen ({{before}} % Gewinnchance), und dieser Zug ließ den Sieg entgleiten ({{after}} %). Es gab einen viel stärkeren Zug.",
+      "playFromHere": "Ab hier gegen Patzer spielen"
     },
-    "regenerateReport": "Neu schreiben"
+    "regenerateReport": "Neu schreiben",
+    "fromPosition": "ab Stellung"
   },
   "classification": {
     "brilliant": "Brillant",
@@ -544,6 +551,7 @@
     "fail": "FEHLER",
     "loadingModels": "Modelle werden von {{provider}} geladen…",
     "noModels": "Keine Modelle geladen — trage oben die URL ein und klicke auf „Testen“, oder gib einen Modellnamen von Hand ein.",
+    "modelMissing": "{{model}} (auf diesem Server nicht vorhanden)",
     "runtime": "Laufzeit",
     "refresh": "aktualisieren",
     "lastModel": "Zuletzt genutztes Modell",
@@ -629,6 +637,21 @@
     "openInReview": "Diese Stellung in der vollen Analyse öffnen",
     "correct": "Richtig!",
     "wrong": "Nicht ganz — die Engine bevorzugt",
+    "mine": {
+      "review": "Wiederholung",
+      "dueLabel": "Fällig",
+      "moves_one": "Die Lösung hat {{count}} Zug.",
+      "moves_other": "Die Lösung hat {{count}} Züge.",
+      "yourMove": "Du bist am Zug. Finde den besten Zug!",
+      "goOn": "Gut! Und weiter …",
+      "checking": "Die Engine prüft deinen Zug …",
+      "alsoGood": "Auch stark! Die Engine hatte {{best}} im Sinn.",
+      "learned": "Im ersten Versuch gelöst – diese Aufgabe kommt nicht wieder.",
+      "comesBack": "Nicht im ersten Versuch – deshalb kommt diese Aufgabe morgen noch einmal.",
+      "solution": "Lösung:",
+      "playedArrow": "Roter Pfeil: dein Zug in der Partie ({{played}})",
+      "coachTitle": "Warum {{best}} besser ist als {{played}}"
+    },
     "tabs": {
       "mine": "Aus deinen Partien",
       "puzzles": "Taktikaufgaben"
@@ -668,6 +691,11 @@
         "hanging": "Hängende & gefangene Figuren",
         "defence": "Verteidigung",
         "endgame": "Endspiel"
+      },
+      "daily": {
+        "title": "Aufgabe des Tages",
+        "more": "Weitere Aufgaben",
+        "already": "Die hast du heute schon gemacht – nochmal lösen ändert weder Wertung noch Serie."
       }
     }
   },
@@ -1051,7 +1079,9 @@
     "lines": "Varianten",
     "depthLabel": "Tiefe",
     "moves": "Züge",
-    "startPos": "Start"
+    "startPos": "Start",
+    "playFromHere": "Ab hier gegen Patzer spielen",
+    "playFromHint": "Ab hier spielen geht, wenn Weiß am Zug ist – oder direkt nach einem Zug, den du hier im Lab gemacht hast."
   },
   "home": {
     "greeting": "Hallo, {{name}}!",
@@ -1073,8 +1103,12 @@
     "statStreak": "Serie",
     "acrossAnalyzed": "über alle analysierten Partien",
     "todayPuzzle": "Aufgabe des Tages",
-    "todayPuzzleTitle": "Du hast {{san}} gespielt. Finde einen stärkeren Zug.",
-    "fromGame": "Aus deiner Partie gegen {{opp}}",
+    "dailyOpen": "Eine neue Aufgabe wartet",
+    "dailySolved": "Gelöst – bis morgen!",
+    "dailyDone": "Erledigt – morgen kommt die nächste",
+    "dailyStreak_one": "{{count}} Tag in Folge",
+    "dailyStreak_other": "{{count}} Tage in Folge",
+    "dailyStart": "Jeden Tag eine – so beginnt deine Serie",
     "topOpening": "Deine häufigste Eröffnung",
     "recentGames": "Letzte Partien",
     "viewAll": "Alle anzeigen →",
@@ -1097,8 +1131,6 @@
       "loss": "Niederlagenserie",
       "draw": "Remisserie"
     },
-    "puzzleEmpty": "Noch keine Aufgaben — spiel ein paar Partien",
-    "puzzleEmptyDesc": "Die Aufgaben entstehen aus deinen eigenen analysierten Patzern.",
     "unreviewed": "nicht analysiert",
     "learnNext": "Deine nächste Lektion",
     "learnResume": "Mach weiter, wo du aufgehört hast",

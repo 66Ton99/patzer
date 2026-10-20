@@ -67,6 +67,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `npm run test:oidc` (also in CI) runs the whole thing against a real
     OpenID provider.
     
+## [7.19.0] — 2026-10-18
+
+### Tactic Trainer: see your move, and hear why the better one is better
+
+- **Your move on the board.** In Train → From your games the move you played
+  in the game is drawn as a red arrow on the puzzle position, so you no longer
+  have to work out from "you played Qd3" which move that was.
+- **The coach explains the difference.** Once the puzzle is over (solved, or
+  the solution shown — never before), the coach explains in plain words why
+  the engine's move beats the one you played: the same engine-checked
+  explanation as in Game Review, in your language and pitched at your
+  audience setting.
+
+### Merged contributions (thanks, @eric-gpu and @Suven-p)
+
+- **Train → From your games: puzzles come back, and go on (#82, @eric-gpu).**
+  A puzzle you don't solve at the first try comes back the next day, marked
+  *Review*, with the same simple daily queue as the opening trainer: solved at
+  the first try on a later day, it's done; missed again, it's back tomorrow.
+  Trying again the same day is practice and changes nothing. The header shows
+  how many are due. When the engine's line goes on with forcing moves — a
+  check, a capture, a promotion, a mate — the puzzle goes on too, up to three
+  of your moves. A move that isn't the engine's but is just as good (within
+  2 % win chance) counts as solved, any checkmate counts, and your own move
+  from the game never does. Hint and "Show solution" work like the Lichess
+  puzzles.
+- **Puzzle of the day, with a streak (#83, @eric-gpu, roadmap #12).** The
+  "Today's puzzle" card on Home is one puzzle from the Lichess set near your
+  puzzle rating — the same puzzle all day, a new one tomorrow — with a plain
+  counter of the days in a row you did it. It opens on Train → Puzzles and is
+  rated like any other puzzle (first try counts). The next puzzle from your
+  own games is no longer on Home; it stays on Train → From your games.
+- **Play from here (#84, @eric-gpu, roadmap #13).** In Game Review the move
+  card has "Play from here against Patzer" at every move, and the Lab has the
+  same button for the position on its board. You play your own colour, pick
+  the bot's strength and the clock, and the game is saved like any bot game —
+  unrated, marked "from a position", and kept out of the opening tree, the
+  opening trainer's repertoire and Insights. Also fixed on the way: the Lab's
+  "Start" went back to the normal starting position after you had set a FEN.
+- **Admin → System: a saved AI model the server doesn't have (#85,
+  @eric-gpu).** When the saved model wasn't in the list the server sent back,
+  the dropdown showed another model while the old one stayed saved, and the
+  coach failed with a 404. The saved model now shows as its own entry, marked
+  "not on this server".
+- **Game Review: the Elo rating is always visible (#81, @Suven-p).** On wide
+  screens the rating next to each player's accuracy was pushed out of sight;
+  the player card now stacks them.
+
 ## [7.18.1] — 2026-10-05
 
 ### Moves land the instant you drop them

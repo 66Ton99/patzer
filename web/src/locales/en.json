@@ -178,7 +178,12 @@
       "discard": "Discard"
     },
     "reconnecting": "Reconnecting… your game is saved.",
-    "subtitle": "Pick a bot or challenge a friend."
+    "subtitle": "Pick a bot or challenge a friend.",
+    "fromPosition": {
+      "title": "Play from this position",
+      "desc": "You play: {{color}}. The game is saved, unrated, and kept out of your opening and Insights statistics.",
+      "normal": "Start a normal game instead"
+    }
   },
   "review": {
     "title": "Game Review",
@@ -291,9 +296,11 @@
       "inaccuracy": "An inaccuracy: the win chance dropped by {{drop}}% ({{before}}% → {{after}}%), about {{pawns}} pawns. Not a disaster, but there was a clearly better move.",
       "mistake": "A mistake: the win chance dropped by {{drop}}% ({{before}}% → {{after}}%), about {{pawns}} pawns — a real chunk of the advantage went away.",
       "blunder": "A blunder: the win chance collapsed by {{drop}}% ({{before}}% → {{after}}%), about {{pawns}} pawns. This kind of move usually loses material or allows a decisive attack.",
-      "miss": "A miss: the position was winning ({{before}}% win chance) and this move let the win slip ({{after}}%). There was a much stronger move on the board."
+      "miss": "A miss: the position was winning ({{before}}% win chance) and this move let the win slip ({{after}}%). There was a much stronger move on the board.",
+      "playFromHere": "Play from here against Patzer"
     },
-    "regenerateReport": "Write it again"
+    "regenerateReport": "Write it again",
+    "fromPosition": "from a position"
   },
   "classification": {
     "brilliant": "Brilliant",
@@ -544,6 +551,7 @@
     "fail": "FAIL",
     "loadingModels": "Loading models from {{provider}}…",
     "noModels": "No models loaded — set the URL above and click Test, or type a model name manually.",
+    "modelMissing": "{{model}} (not on this server)",
     "runtime": "Runtime",
     "refresh": "refresh",
     "lastModel": "Last model used",
@@ -629,6 +637,21 @@
     "openInReview": "Open this position in the full review",
     "correct": "Correct!",
     "wrong": "Not quite — the engine prefers",
+    "mine": {
+      "review": "Review",
+      "dueLabel": "Due",
+      "moves_one": "The solution has {{count}} move.",
+      "moves_other": "The solution has {{count}} moves.",
+      "yourMove": "Your move. Find the best one!",
+      "goOn": "Good! Keep going …",
+      "checking": "The engine is looking at your move …",
+      "alsoGood": "Also strong! The engine had {{best}} in mind.",
+      "learned": "Solved at the first try — this one won't come back.",
+      "comesBack": "Not at the first try, so this puzzle comes back tomorrow.",
+      "solution": "Solution:",
+      "playedArrow": "Red arrow: the move you played in the game ({{played}})",
+      "coachTitle": "Why {{best}} is better than {{played}}"
+    },
     "tabs": {
       "mine": "From your games",
       "puzzles": "Puzzles"
@@ -668,6 +691,11 @@
         "hanging": "Hanging & trapped pieces",
         "defence": "Defence",
         "endgame": "Endgame"
+      },
+      "daily": {
+        "title": "Puzzle of the day",
+        "more": "More puzzles",
+        "already": "You did this one today — trying again doesn’t change your rating or your streak."
       }
     }
   },
@@ -1051,7 +1079,9 @@
     "lines": "Lines",
     "depthLabel": "depth",
     "moves": "Moves",
-    "startPos": "Start"
+    "startPos": "Start",
+    "playFromHere": "Play from here against Patzer",
+    "playFromHint": "Playing from here needs White to move — or a move you made here in the Lab just before."
   },
   "home": {
     "greeting": "Hi, {{name}}!",
@@ -1073,8 +1103,12 @@
     "statStreak": "Streak",
     "acrossAnalyzed": "across analyzed games",
     "todayPuzzle": "Today's puzzle",
-    "todayPuzzleTitle": "You played {{san}}. Find a stronger move.",
-    "fromGame": "From your game vs {{opp}}",
+    "dailyOpen": "A new puzzle is waiting",
+    "dailySolved": "Solved — see you tomorrow",
+    "dailyDone": "Done — the next one comes tomorrow",
+    "dailyStreak_one": "{{count}} day in a row",
+    "dailyStreak_other": "{{count}} days in a row",
+    "dailyStart": "One a day, and your streak begins",
     "topOpening": "Your top opening",
     "recentGames": "Recent games",
     "viewAll": "View all →",
@@ -1097,8 +1131,6 @@
       "loss": "loss streak",
       "draw": "draw streak"
     },
-    "puzzleEmpty": "No puzzles yet — play a few games",
-    "puzzleEmptyDesc": "Puzzles come from your own analyzed blunders.",
     "unreviewed": "unreviewed",
     "learnNext": "Your next lesson",
     "learnResume": "Continue where you left off",

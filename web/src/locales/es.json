@@ -169,7 +169,12 @@
       "action": "Reanudar",
       "discard": "Descartar"
     },
-    "reconnecting": "Reconectando… tu partida está guardada."
+    "reconnecting": "Reconectando… tu partida está guardada.",
+    "fromPosition": {
+      "title": "Jugar desde esta posición",
+      "desc": "Juegas con: {{color}}. La partida se guarda, sin puntuación, y queda fuera de tus estadísticas de aperturas e Insights.",
+      "normal": "Mejor una partida normal"
+    }
   },
   "review": {
     "title": "Análisis de partida",
@@ -244,9 +249,11 @@
       "inaccuracy": "Una imprecisión: la probabilidad de ganar bajó un {{drop}}% ({{before}}% → {{after}}%), unos {{pawns}} peones. No es un desastre, pero había una jugada claramente mejor.",
       "mistake": "Un error: la probabilidad de ganar bajó un {{drop}}% ({{before}}% → {{after}}%), unos {{pawns}} peones: se perdió buena parte de la ventaja.",
       "blunder": "Un error grave: la probabilidad de ganar se desplomó un {{drop}}% ({{before}}% → {{after}}%), unos {{pawns}} peones. Una jugada así suele perder material o permitir un ataque decisivo.",
-      "miss": "Una oportunidad perdida: la posición estaba ganada ({{before}}% de ganar) y esta jugada dejó escapar la victoria ({{after}}%). Había una jugada mucho más fuerte."
+      "miss": "Una oportunidad perdida: la posición estaba ganada ({{before}}% de ganar) y esta jugada dejó escapar la victoria ({{after}}%). Había una jugada mucho más fuerte.",
+      "playFromHere": "Jugar desde aquí contra Patzer"
     },
-    "regenerateReport": "Escribirlo de nuevo"
+    "regenerateReport": "Escribirlo de nuevo",
+    "fromPosition": "desde una posición"
   },
   "classification": {
     "brilliant": "Brillante",
@@ -418,7 +425,8 @@
     "signInPassword": "Contraseña",
     "signInSsoHint": "Creada al iniciar sesión con inicio de sesión único",
     "signInPasswordHint": "Creada con nombre de usuario y contraseña",
-    "ssoLinked": "vinculada a SSO"
+    "ssoLinked": "vinculada a SSO",
+    "modelMissing": "{{model}} (no está en este servidor)"
   },
   "palette": {
     "switchLanguage": "Cambiar a",
@@ -470,7 +478,30 @@
     "nextPuzzle": "Siguiente problema",
     "openInReview": "Abrir esta posición en el análisis completo",
     "correct": "¡Correcto!",
-    "wrong": "Casi — el motor prefiere"
+    "wrong": "Casi — el motor prefiere",
+    "puzzles": {
+      "allDone": "Has probado todos los problemas de aquí – ¡impresionante!",
+      "daily": {
+        "title": "Problema del día",
+        "more": "Más problemas",
+        "already": "Este ya lo hiciste hoy: repetirlo no cambia tu puntuación ni tu racha."
+      }
+    },
+    "mine": {
+      "review": "Repaso",
+      "dueLabel": "Para hoy",
+      "moves_one": "La solución tiene {{count}} jugada.",
+      "moves_other": "La solución tiene {{count}} jugadas.",
+      "yourMove": "Te toca. ¡Encuentra la mejor jugada!",
+      "goOn": "¡Bien! Sigue …",
+      "checking": "El motor está mirando tu jugada …",
+      "alsoGood": "¡También es fuerte! El motor pensaba en {{best}}.",
+      "learned": "Resuelto al primer intento: este problema no volverá.",
+      "comesBack": "No al primer intento, así que este problema vuelve mañana.",
+      "solution": "Solución:",
+      "playedArrow": "Flecha roja: la jugada que hiciste en la partida ({{played}})",
+      "coachTitle": "Por qué {{best}} es mejor que {{played}}"
+    }
   },
   "insights": {
     "title": "Estadísticas",
@@ -587,7 +618,9 @@
     "lines": "Líneas",
     "depthLabel": "profundidad",
     "moves": "Jugadas",
-    "startPos": "Posición inicial"
+    "startPos": "Posición inicial",
+    "playFromHere": "Jugar desde aquí contra Patzer",
+    "playFromHint": "Jugar desde aquí funciona con las blancas al turno, o justo después de una jugada que hiciste aquí en el Laboratorio."
   },
   "home": {
     "greeting": "¡Hola, {{name}}!",
@@ -609,8 +642,12 @@
     "statStreak": "Racha",
     "acrossAnalyzed": "en partidas analizadas",
     "todayPuzzle": "Problema del día",
-    "todayPuzzleTitle": "Jugaste {{san}}. Encuentra una jugada mejor.",
-    "fromGame": "De tu partida contra {{opp}}",
+    "dailyOpen": "Te espera un problema nuevo",
+    "dailySolved": "Resuelto – ¡hasta mañana!",
+    "dailyDone": "Hecho – el siguiente llega mañana",
+    "dailyStreak_one": "{{count}} día seguido",
+    "dailyStreak_other": "{{count}} días seguidos",
+    "dailyStart": "Uno al día, y empieza tu racha",
     "topOpening": "Tu apertura principal",
     "recentGames": "Partidas recientes",
     "viewAll": "Ver todas →",
