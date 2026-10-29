@@ -67,6 +67,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `npm run test:oidc` (also in CI) runs the whole thing against a real
     OpenID provider.
 
+## [7.20.1] — 2026-10-30
+
+### Changed
+- **Nix Stockfish defaults & configurable thread scaling.** Configured default Stockfish threads to 2 and hash to 512 MB in `flake.nix` (`runDevScript`, `runProdScript`, and `devShells`) and `shell.nix`, overridable via `STOCKFISH_THREADS` and `STOCKFISH_HASH`.
+- **Dynamic Stockfish thread and hash options across analysis endpoints.** Single position evaluation (`/api/analyze/position`) and move validation in trainer now respect `STOCKFISH_THREADS` and `STOCKFISH_HASH` rather than fixed static limits.
+
 ## [7.20.0] — 2026-10-29
 
 ### Added

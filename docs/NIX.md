@@ -137,6 +137,8 @@ Whenever you `cd` into the project, Node 22, Stockfish, and environment variable
 
 The Nix apps and shells automatically set:
 - `STOCKFISH_PATH`: Set to `${pkgs.stockfish}/bin/stockfish` in the Nix store.
+- `STOCKFISH_THREADS`: Defaults to `2` in the Nix environment (overridable up to 16).
+- `STOCKFISH_HASH`: Defaults to `512` (MB) in the Nix environment (overridable up to 4096).
 
 All standard Patzer configuration variables can be passed inline or set in a `.env` file in the root directory:
 
@@ -145,6 +147,8 @@ All standard Patzer configuration variables can be passed inline or set in a `.e
 | `PORT` | `8800` | Port for the backend API and production server. |
 | `HOST` | `0.0.0.0` | Host interface to bind. |
 | `DATA_DIR` | `./data` | Directory where SQLite database (`chess.db`) is stored. |
+| `STOCKFISH_THREADS` | `2` | Number of CPU threads allocated to Stockfish analysis. |
+| `STOCKFISH_HASH` | `512` (Nix) / `128` | Stockfish transposition table size in MB. |
 | `OLLAMA_BASE_URL` | (none) | URL to Ollama instance for AI Coach (e.g. `http://localhost:11434`). |
 | `VLLM_BASE_URL` | (none) | URL to vLLM instance for AI Coach. |
 | `COOKIE_SECURE` | `false` | Set to `true` when behind an HTTPS reverse proxy. |
