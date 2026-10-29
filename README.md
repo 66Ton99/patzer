@@ -21,6 +21,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/SikamikanikoBG/patzer?style=flat-square" alt="MIT"/></a>
   <a href="https://github.com/SikamikanikoBG/patzer/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/SikamikanikoBG/patzer/ci.yml?style=flat-square&label=CI" alt="CI"/></a>
   <a href="https://github.com/SikamikanikoBG/patzer/stargazers"><img src="https://img.shields.io/github/stars/SikamikanikoBG/patzer?style=flat-square" alt="stars"/></a>
+  <a href="https://www.opensourcealternatives.to"><img src="https://www.opensourcealternatives.to/badge-osa.svg" alt="As seen on Open Source Alternatives" width="270" height="20"/></a>
 </p>
 
 <p align="center">
