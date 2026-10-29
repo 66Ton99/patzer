@@ -16,6 +16,8 @@ pkgs.mkShell {
 
   shellHook = ''
     export STOCKFISH_PATH="${stockfish}/bin/stockfish"
+    export STOCKFISH_THREADS="''${STOCKFISH_THREADS:-2}"
+    export STOCKFISH_HASH="''${STOCKFISH_HASH:-512}"
     export PATH="$PWD/bin:$PWD/node_modules/.bin:$PATH"
 
     mkdir -p "$PWD/bin"
