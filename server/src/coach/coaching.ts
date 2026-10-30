@@ -3,7 +3,7 @@ import { cpToWinPct } from "../chess/classifier.js";
 import { createAnalysisEngine } from "../chess/engine.js";
 import { hasBackRankSignature } from "../chess/phases.js";
 import type { Audience, Classification, Language } from "../types.js";
-import { pieceNames, ruPlural, verdictPhrase } from "./locales.js";
+import { pieceNames, ruPlural, ukPlural, verdictPhrase } from "./locales.js";
 import { sanToNatural } from "./moves.js";
 import { evaluationStateNatural } from "./facts-utils.js";
 import { mistakeKind, missedInTrainer, playerMemory, weakestPhase, type MistakeKind, type PlayerMemory } from "./memory.js";
@@ -320,6 +320,46 @@ const PHRASES: Record<Language, Phrases> = {
       topIdea: (r) => `Что даёт лучший ход по мнению движка: ${r}.`,
     },
   },
+  uk: {
+    on: "на",
+    allowsMate: (m) => `Після цього ходу суперник відразу ставить мат: ${m}.`,
+    hangs: (p) => `Після цього ходу без захисту залишається: ${p}. Суперник може виграти матеріал.`,
+    opponentReply: (m) => `Найкраща відповідь суперника: ${m}.`,
+    reasons: {
+      mate: "це мат", stopsMate: "він відбиває загрозу мату", threatensMate: "він загрожує матом",
+      check: "він оголошує шах", castles: "він відводить короля в безпеку", develops: "він розвиває фігуру",
+      wins: (p) => `він виграє матеріал (${p})`, fork: (ps) => `він нападає відразу на дві фігури (${ps})`,
+      saves: (p) => `він рятує фігуру під ударом (${p})`, threatens: (p) => `він нападає на погано захищену фігуру (${p})`,
+    },
+    quiet: "спокійний хід, що покращує позицію",
+    takeaway: {
+      allowed_mate: "Перед кожним ходом перевір усі шахи, які суперник зможе дати після нього, особливо на полях навколо твого короля.",
+      hung_piece: "Перш ніж відпустити фігуру, запитай себе: що суперник зможе взяти після цього ходу і чи воно захищене?",
+      missed_mate: "Коли у короля суперника мало полів, спочатку перевір усі шахи: можливо, є мат.",
+      missed_win: "Коли у тебе виграна позиція, спочатку шукай форсований хід: шахи, взяття, загрози.",
+      missed_tactic: "Шукай незахищені фігури та ті, на які можна напасти двічі: там криється тактика.",
+      positional: "Порівняй свій хід із найкращим: що кожен із них дає твоїм фігурам і королю?",
+    },
+    kind: {
+      allowed_mate: "допущено швидкий мат", hung_piece: "фігуру залишено без захисту", missed_mate: "пропущено мат",
+      missed_win: "упущено виграш", missed_tactic: "пропущено тактику",
+    },
+    pattern: (n, t, l) => `Закономірність із твоїх останніх партій (${n} з ${t}): ${l}.`,
+    weakPhase: (w, wa, b, ba) => `Твоя найслабша фаза останнім часом: ${w}, точність ${wa}% (${b}: ${ba}%).`,
+    phase: { opening: "дебют", middlegame: "міттельшпіль", endgame: "ендшпіль" },
+    greatFinds: (n) => `У твоїх останніх партіях ${n} ${ukPlural(n, "чудовий або блискучий хід", "чудових або блискучих ходи", "чудових або блискучих ходів")}.`,
+    trainer: (n, m) => `Ця позиція є у твоєму тренажері дебютів (помилок: ${n}); правильний хід там — ${m}.`,
+    hint: {
+      mateAvailable: "У цій позиції у тебе є мат.",
+      mateThreat: "Суперник загрожує матом наступним ходом.",
+      inCheck: "Твоєму королю оголошено шах.",
+      ourHanging: (ps) => `Під ударом і без достатнього захисту: ${ps}.`,
+      theirHanging: (ps) => `У суперника погано захищена фігура: ${ps}.`,
+      undeveloped: (ps) => `Ще не розвинуті: ${ps}. Спочатку розвиток.`,
+      notCastled: "Твій король ще не рокірувався.",
+      topIdea: (r) => `Що дає найкращий хід на думку рушія: ${r}.`,
+    },
+  },
 };
 
 export const phrases = (lang: Language): Phrases => PHRASES[lang] ?? PHRASES.en;
@@ -586,6 +626,7 @@ const PRAISE: Record<Language, RegExp> = {
   es: /(gran jugada|genial|excelente|brillante|bien jugad|buena jugada|jugada fuerte|sólid|perfect|estupend|bien hecho)/i,
   de: /(großartig|ausgezeichnet|brillant|gut gespielt|guter zug|starker zug|solide|perfekt|klasse zug|stark gespielt|gut gemacht|schöner zug)/i,
   ru: /(отличн|блестящ|прекрасн|молодец|хороший ход|(?<!более )сильный ход|здорово|великолепн|солидн|хорошо сыграно)/i,
+  uk: /(чудов|відмінн|блискуч|молодець|гарний хід|(?<!більш )сильний хід|класно|прекрасн|солідн|добре зіграно)/i,
 };
 const BLAME: Record<Language, RegExp> = {
   en: /\b(blunder|mistake|inaccura)/i,
@@ -593,6 +634,7 @@ const BLAME: Record<Language, RegExp> = {
   es: /(error|imprecisi|fallo grave)/i,
   de: /(fehler|ungenauigkeit)/i,
   ru: /(ошибк|зевок|неточност)/i,
+  uk: /(помилк|зевок|неточність|груба помилка)/i,
 };
 
 const firstSentence = (t: string) => t.trim().split(/(?<=[.!?…])\s/)[0] ?? t;
@@ -624,5 +666,5 @@ export function fallbackText(c: ExplainCoaching["facts"], lang: Language): strin
 }
 
 function betterWord(lang: Language): string {
-  return { en: "Better:", bg: "По-добре:", es: "Mejor:", de: "Besser:", ru: "Лучше:" }[lang] ?? "Better:";
+  return { en: "Better:", bg: "По-добре:", es: "Mejor:", de: "Besser:", ru: "Лучше:", uk: "Краще:" }[lang] ?? "Better:";
 }
