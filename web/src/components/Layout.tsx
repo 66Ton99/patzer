@@ -9,7 +9,7 @@ import { cn } from '../lib/utils';
 import ChangelogModal from './ChangelogModal';
 import GitHubStar from './GitHubStar';
 import { LogoMark, LogoLockup } from './Logo';
-import { LANGUAGES, normalizeLanguage } from '../lib/languages';
+import { LANGUAGES, normalizeLanguage, type Language } from '../lib/languages';
 import { endSession } from '../lib/logout';
 
 // v4.0.0 Layout — chess.com-style horizontal top bar.
@@ -33,6 +33,13 @@ export default function Layout({ onOpenPalette, onOpenShortcuts }: LayoutProps) 
   const [adminOpen, setAdminOpen] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [version, setVersion] = useState<string>('');
+
+  const changeLang = (code: Language) => {
+    void i18n.changeLanguage(code);
+    if (user && user.profile.language !== code) {
+      api.patch('/api/settings/profile', { language: code }).then(() => refresh()).catch(() => {});
+    }
+  };
 
   useEffect(() => {
     api.get<{ version: string }>('/api/meta')
@@ -243,7 +250,7 @@ export default function Layout({ onOpenPalette, onOpenShortcuts }: LayoutProps) 
               {LANGUAGES.map((l) => (
                 <button
                   key={l.code}
-                  onClick={() => i18n.changeLanguage(l.code)}
+                  onClick={() => changeLang(l.code)}
                   className={cn('rounded-md px-2 py-1 transition-colors', uiLang === l.code ? 'bg-gold-500 text-chesscom-900' : 'text-chesscom-300 hover:text-white')}
                 >{l.short}</button>
               ))}
@@ -336,7 +343,7 @@ export default function Layout({ onOpenPalette, onOpenShortcuts }: LayoutProps) 
             <div className="mt-auto space-y-2 pt-6">
               <div className="flex gap-1">
                 {LANGUAGES.map((l) => (
-                  <button key={l.code} onClick={() => i18n.changeLanguage(l.code)} className={cn('flex-1 rounded-lg px-2 py-1 text-xs', uiLang === l.code ? 'bg-gold-500 text-chesscom-900' : 'bg-chesscom-800 text-chesscom-200')}>{l.short}</button>
+                  <button key={l.code} onClick={() => changeLang(l.code)} className={cn('flex-1 rounded-lg px-2 py-1 text-xs', uiLang === l.code ? 'bg-gold-500 text-chesscom-900' : 'bg-chesscom-800 text-chesscom-200')}>{l.short}</button>
                 ))}
               </div>
               <button onClick={logout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-chesscom-200 hover:bg-chesscom-800">

@@ -22,6 +22,7 @@ import { soundForMove, inferMoveFlagsFromSan } from '../lib/sounds';
 import { api } from '../api';
 import { useAuth } from '../state/auth';
 import { parseFromPosition, playFromPosition, playFromUrl } from '../lib/fromPosition';
+import { normalizeLanguage } from '../lib/languages';
 import type { AnalysisResult, AnalyzedMove, KeyMomentSummary, PhaseSplit } from '../types';
 
 interface GameDetail {
@@ -59,7 +60,7 @@ type Tab = 'moves' | 'report' | 'moments';
 
 export default function GameAnalyzer() {
   const { id } = useParams<{ id: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const gameId = Number(id);
 
@@ -116,10 +117,11 @@ export default function GameAnalyzer() {
   // Load any cached AI prose for this game
   useEffect(() => {
     if (!gameId) return;
-    api.get<{ review: GameReviewProse | null }>(`/api/games/${gameId}/review`)
+    const lang = normalizeLanguage(i18n.language);
+    api.get<{ review: GameReviewProse | null }>(`/api/games/${gameId}/review?language=${lang}`)
       .then((r) => setReviewProse(r.review))
       .catch(() => setReviewProse(null));
-  }, [gameId]);
+  }, [gameId, i18n.language]);
 
   useEffect(() => {
     api.get<{ configured: boolean }>('/api/coach/status')
@@ -263,6 +265,7 @@ export default function GameAnalyzer() {
       // Your own moves get "you" and your history (past mistakes of the same
       // kind, weakest phase, the opening trainer); the opponent's get neither.
       user_perspective: !!data.game.user_color && (ply % 2 === 1 ? 'white' : 'black') === data.game.user_color,
+      language: normalizeLanguage(i18n.language),
     },
   }) : null;
 

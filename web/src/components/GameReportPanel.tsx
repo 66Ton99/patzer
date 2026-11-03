@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { renderMarkdown, stripReasoning } from '../lib/markdown';
-import type { Language } from '../lib/languages';
+import { normalizeLanguage, type Language } from '../lib/languages';
 
 export interface GameReviewProse {
   version: number;
@@ -48,7 +48,7 @@ interface ProgressEvent {
 }
 
 export default function GameReportPanel({ gameId, initial, onMomentJump, onGenerated, userColor }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [review, setReview] = useState<GameReviewProse | null>(initial);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<ProgressEvent | null>(null);
@@ -64,10 +64,12 @@ export default function GameReportPanel({ gameId, initial, onMomentJump, onGener
     abortRef.current = ac;
     setBusy(true); setError(null); setProgress(null);
     try {
+      const lang = normalizeLanguage(i18n.language);
       const res = await fetch(`/api/games/${gameId}/review`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'patzer' },
+        body: JSON.stringify({ language: lang }),
         signal: ac.signal,
       });
       if (!res.ok || !res.body) {

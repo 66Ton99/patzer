@@ -67,6 +67,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `npm run test:oidc` (also in CI) runs the whole thing against a real
     OpenID provider.
 
+### Ukrainian localization & AI Coach language synchronization
+
+- **Full Ukrainian localization.** Complete end-to-end support for the Ukrainian language across all application layers:
+  - **Main Web Interface:** 1,221 translated strings in `web/src/locales/uk.json` with comprehensive CLDR pluralization support across all four forms (`_one`, `_few`, `_many`, `_other`).
+  - **Learn Section:** All 70 curriculum modules (555 keys) translated and verified in `web/src/locales/learn/uk.json` with correct Ukrainian chess terminology (тура, пішак, кінь, слон, ферзь, король, рокіровка, взяття на проході, вилка, зв'язка, лінійний удар, позиція Лусени, позиція Філідора тощо).
+  - **AI Chess Coach:** Full Ukrainian support for move analysis, explanations, and game reviews in `server/src/coach/`, including grammatical case inflections (`ukForm`), plural rules (`ukPlural`), audience-specific personas and rules (`AUDIENCE_UK`, `PERSONA_UK`, `HARD_RULES_UK`), and classification verdict phrases (`CLASS_PHRASE_UK`).
+  - **Server Endpoints & SSO:** Added `'uk'` to language validation schemas in admin, auth, coach, settings, setup, and OIDC workflows.
+  - **Automated Tests:** Comprehensive unit and integration test coverage (`server/test/coach-ukrainian.test.ts`, `server/test/coach-coaching.test.ts`, and `web/src/locales/locales.test.ts`).
+- **AI coach language synchronization and explicit language propagation:**
+  - Resolved an issue where AI coach explanations and move analysis defaulted to English even when the Ukrainian interface was selected.
+  - Enriched coach panel requests (`CoachPanel`, `GameAnalyzer`, `Play`, `Train`, and `gamePuzzle`) to pass the active UI language (`normalizeLanguage(i18n.language)`) in API payloads.
+  - Updated `Layout` language switchers and `CommandPalette` to persist language changes to the user's profile (`PATCH /api/settings/profile`) and refresh session state.
+  - Added language query and payload support for Game Review (`GET /api/games/:id/review?language=...` and `POST /api/games/:id/review`), invalidating stale reviews generated in a different language.
+  - Ensured coach text-to-speech (TTS) uses active UI language voice synthesis.
+
 ## [7.20.1] — 2026-10-30
 
 ### Changed

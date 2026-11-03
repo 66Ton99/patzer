@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { streamSSE } from 'hono/streaming';
 import { db } from '../db.js';
 import { requireAuth } from '../auth/middleware.js';
 import { llmConfigured } from '../coach/llm.js';
 import { buildGameReview, reviewCacheKey, type GameReview, REVIEW_PROSE_VERSION } from '../coach/review.js';
-import type { AnalysisResult, AnalyzedMove, KeyMomentSummary, PhaseSplit } from '../types.js';
+import type { AnalysisResult, AnalyzedMove, KeyMomentSummary, PhaseSplit, Language } from '../types.js';
 
 const router = new Hono();
 router.use('*', requireAuth);
@@ -57,7 +58,10 @@ router.get('/:id/review', (c) => {
     | undefined;
   if (!row?.prose_json) return c.json({ review: null });
   // Validate the cached prose was generated for the same lang+audience+version.
-  const wantKey = reviewCacheKey({ language: user.profile.language, audience: user.profile.audience });
+  const qLang = c.req.query('language');
+  const qParsed = z.enum(['en', 'bg', 'es', 'de', 'ru', 'uk']).safeParse(qLang);
+  const language: Language = (qParsed.success ? qParsed.data : undefined) ?? user.profile.language;
+  const wantKey = reviewCacheKey({ language, audience: user.profile.audience });
   const haveKey = `${row.prose_version}|${row.prose_lang ?? ''}|${row.prose_audience ?? ''}`;
   if (wantKey !== haveKey) return c.json({ review: null, stale: true });
   try {
@@ -82,9 +86,14 @@ router.post('/:id/review', async (c) => {
   if (!row) return c.json({ error: 'analysis_required' }, 409);
   if (!llmConfigured()) return c.json({ error: 'llm_not_configured' }, 503);
 
+  const body = await c.req.json().catch(() => ({}));
+  const bodyParsed = z.object({
+    language: z.enum(['en', 'bg', 'es', 'de', 'ru', 'uk']).optional(),
+  }).safeParse(body);
+
   const analysis = rowToAnalysis(row);
   const userColor = game.user_color ?? 'white';
-  const language = user.profile.language;
+  const language: Language = (bodyParsed.success ? bodyParsed.data.language : undefined) ?? user.profile.language;
   const audience = user.profile.audience;
 
   return streamSSE(c, async (stream) => {

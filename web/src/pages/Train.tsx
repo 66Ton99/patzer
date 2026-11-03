@@ -19,13 +19,14 @@ import { localDay } from '../lib/openingTrainer';
 import { positionAt, sanAt, type TacticsPuzzle } from '../lib/tactics';
 import { soundForMove, inferMoveFlagsFromSan } from '../lib/sounds';
 import { coachRequest, playedMoveArrow, type GamePuzzle as Puzzle } from '../lib/gamePuzzle';
+import { normalizeLanguage } from '../lib/languages';
 import CoachPanel from '../components/CoachPanel';
 
 
 interface Stats { total: number; solved: number; failed: number; accuracy: number; due: number }
 
 export default function Train() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
   const tab = params.get('tab') === 'puzzles' ? 'puzzles' : 'mine';
   const setTab = (next: 'mine' | 'puzzles') => setParams(next === 'puzzles' ? { tab: 'puzzles' } : {}, { replace: true });
@@ -132,7 +133,7 @@ type Status = 'play' | 'checking' | 'wrong' | 'solved' | 'shown';
 interface AttemptResult { counted: boolean; done: boolean; due_on: string | null }
 
 function OwnPuzzle({ puzzle, onNext }: { puzzle: Puzzle; onNext: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const qc = useQueryClient();
   // The line in the shape of a Lichess puzzle, for the shared board helpers.
@@ -397,7 +398,7 @@ function OwnPuzzle({ puzzle, onNext }: { puzzle: Puzzle; onNext: () => void }) {
             </div>
             <CoachPanel
               systemConfigured={coach?.configured ?? false}
-              request={() => coachRequest(puzzle)}
+              request={() => coachRequest(puzzle, normalizeLanguage(i18n.language))}
               autoPlay
               triggerKey={`${puzzle.game_id}:${puzzle.ply}`}
               compact

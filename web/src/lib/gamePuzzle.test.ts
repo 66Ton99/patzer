@@ -43,4 +43,9 @@ describe('asking the coach why the better move beats yours', () => {
     expect(body).not.toHaveProperty('eval_before_cp');
     expect(body).not.toHaveProperty('eval_after_cp');
   });
+
+  it('includes language when requested', () => {
+    const { body } = coachRequest(puzzle, 'uk');
+    expect(body.language).toBe('uk');
+  });
 });

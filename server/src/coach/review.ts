@@ -280,6 +280,46 @@ Schema: { "summary": string (3-5 Sätze), "skill_assessment": string (1 Satz: wa
     fallbackSkill: (elo) => `Эта партия сыграна примерно на уровне ${elo} Эло.`,
     fallbackOpening: (name) => `Дебют партии — ${name}: крепкий выбор.`,
   },
+  uk: {
+    jsonHard: `\n\nR10. Відповідай РІВНО ОДНИМ JSON-об'єктом за схемою з TASK. Без тексту поза JSON. Без markdown-блоків. Без зайвих ключів.`,
+    perspective: 'ти',
+    you: 'ти',
+    opponent: 'суперник',
+    result: { win: 'ти виграв', loss: 'ти програв', draw: 'нічия' },
+    phase: { opening: 'дебют', middlegame: 'міттельшпіль', endgame: 'ендшпіль' },
+    keyMoment: 'Ключовий момент',
+    taskPhase: (phase) => `TASK: Опиши у 2-4 реченнях, як гравець провів стадію «${phase}». Звертайся на "ти", без дієслів минулого часу з родом.
+- Ходи у FACTS.moves з "by": "ти" — ходи гравця; з "by": "суперник" — ходи суперника. Ніколи не приписуй гравцю хід суперника.
+- Назви конкретні ходи з FACTS.moves, які мали значення (словами, як надано), і що вони зробили — і вдалі, і коштовні.
+- Закінчи однією конкретною річчю, яку варто покращити на цій стадії, за FACTS.
+- Не повторюй відсоток точності: гравець його вже бачить.
+Схема: { "prose": string }`,
+    taskMomentOwn: `TASK: Цей ключовий момент — хід САМОГО гравця ("ти"). Розбери його як тренер. Звертайся на "ти", без дієслів минулого часу з родом. Поля:
+- title: ≤6 слів, без крапки в кінці.
+- what_happened: 1-2 речення — що зіграно і що хід зробив або допустив, за FACTS.moment.why та FACTS.moment.best_reply.
+- why_it_matters: 1-2 речення — найкращий хід із FACTS.moment.better_move і чого б він досяг (або, якщо хід хороший, чому він спрацював).
+- what_to_learn: 1 речення — висновок (FACTS.moment.takeaway, якщо є).
+Схема: { "title": string, "what_happened": string, "why_it_matters": string, "what_to_learn": string }`,
+    taskMomentOpponent: `TASK: Цей ключовий момент — хід СУПЕРНИКА, а не гравця. Ніколи не пиши про нього "ти зіграв". Поля:
+- title: ≤6 слів, без крапки в кінці, про хід суперника.
+- what_happened: 1-2 речення — що зіграв суперник і вердикт.
+- why_it_matters: 1-2 речення — що це означало для тебе: шанс, який він дав (FACTS.moment.best_reply — як його покарати), і чи використав його твій хід (FACTS.moment.your_answer).
+- what_to_learn: 1 речення — на що звертати увагу, коли суперник так грає.
+Схема: { "title": string, "what_happened": string, "why_it_matters": string, "what_to_learn": string }`,
+    taskSummary: `TASK: Напиши підсумок тренера щодо цієї партії для гравця ("ти"), без дієслів минулого часу з родом. Розкажи історію на конкретних фактах:
+- як вирішилася партія — FACTS.turning_point, назви хід словами і хто його зробив;
+- одна вдала дія (FACTS.your_best_moves) і найважливіше, що виправити (FACTS.your_costliest_moves, з кращим ходом);
+- якщо FACTS.opponent_gifts не порожній — чи використані ці шанси.
+НЕ повторюй відсотки точності, Ело та кількість ходів за категоріями — гравець їх уже бачить. Без порожніх фраз на кшталт "контроль темпу" або "боротьба за ініціативу", якщо FACTS цього не підтверджує.
+Схема: { "summary": string (3-5 речень), "skill_assessment": string (1 речення: що партія говорить про рівень і яка одна звичка його підвищить), "opening_prose": string (≤2 речення про дебют) }`,
+    fallbackPhase: (phase, accuracy, plies) => `На стадії «${phase}» твоя точність — ${accuracy}% на ${plies} півходах.`,
+    fallbackMoment: (move, verdict, cpLoss) => `На ${move}-му ходу партія переламалася: ${verdict}. Ціна — близько ${(cpLoss / 100).toFixed(1)} пішака.`,
+    fallbackMomentOpponent: (move, verdict) => `На ${move}-му ходу суперник зіграв: ${verdict}.`,
+    fallbackSummary: (acc, brilliant, mistakes, blunders) => `Твоя точність — ${acc}%. Блискучих ходів: ${brilliant}, помилок: ${mistakes}, грубих помилок: ${blunders}.`,
+    fallbackSkillNone: 'Оцінки рівня поки немає.',
+    fallbackSkill: (elo) => `Ця партія зіграна приблизно на рівні ${elo} Ело.`,
+    fallbackOpening: (name) => `Дебют партії — ${name}: солідний вибір.`,
+  },
 };
 
 function reviewText(language: Language): ReviewText {

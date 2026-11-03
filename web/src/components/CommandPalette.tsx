@@ -75,7 +75,21 @@ export default function CommandPalette({ open, onClose }: Props) {
       base.push({ id: 'nav-admin-system', label: t('admin.system'), icon: Server, group: 'nav', run: () => { nav('/admin/system'); onClose(); } });
     }
     base.push(
-      ...LANGUAGES.map((l) => ({ id: `lang-${l.code}`, label: `${t('palette.switchLanguage', { defaultValue: 'Switch to' })} ${l.native}`, icon: Globe, group: 'action' as const, keywords: `language ${l.native.toLowerCase()} ${l.code}`, run: async () => { await i18n.changeLanguage(l.code); onClose(); } })),
+      ...LANGUAGES.map((l) => ({
+        id: `lang-${l.code}`,
+        label: `${t('palette.switchLanguage', { defaultValue: 'Switch to' })} ${l.native}`,
+        icon: Globe,
+        group: 'action' as const,
+        keywords: `language ${l.native.toLowerCase()} ${l.code}`,
+        run: async () => {
+          await i18n.changeLanguage(l.code);
+          if (user && user.profile.language !== l.code) {
+            await api.patch('/api/settings/profile', { language: l.code }).catch(() => {});
+            await refresh().catch(() => {});
+          }
+          onClose();
+        },
+      })),
       { id: 'theme-light', label: t('palette.themeLight', { defaultValue: 'Light theme' }), icon: Sun, group: 'action', run: async () => { await api.patch('/api/settings/profile', { site_theme: 'light' }); await refresh(); onClose(); } },
       { id: 'theme-dark', label: t('palette.themeDark', { defaultValue: 'Dark theme' }), icon: Moon, group: 'action', run: async () => { await api.patch('/api/settings/profile', { site_theme: 'dark' }); await refresh(); onClose(); } },
       { id: 'logout', label: t('common.logout'), icon: LogOut, group: 'action', run: async () => { onClose(); if (await endSession()) return; await refresh(); nav('/login'); } },

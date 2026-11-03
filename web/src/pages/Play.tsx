@@ -18,6 +18,7 @@ import { ReconnectingSocket, type SocketLike } from '../lib/reconnectingSocket';
 import { soundForMove, inferMoveFlagsFromSan, playSound } from '../lib/sounds';
 import type { Difficulty, Classification } from '../types';
 import { parseFromPosition } from '../lib/fromPosition';
+import { normalizeLanguage } from '../lib/languages';
 
 const DIFFICULTIES: Difficulty[] = ['kid','beginner','easy','medium','hard','master','stockfish'];
 const TIME_CONTROLS = ['untimed','bullet','blitz','rapid','classical'] as const;
@@ -140,7 +141,7 @@ interface GameResult { result: string; reason: string; gameId?: number }
 interface BlunderPreview { uci: string; classification: Classification; cp_loss: number; best_uci: string | null; best_san: string | null; eval_after_cp: number }
 
 export default function Play() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const lobby = useLobby();
   const nav = useNavigate();
@@ -920,6 +921,7 @@ export default function Play() {
 
   // Coach context: explain user's last classified move if available, else give a hint
   const moveSans = moves.map((m) => m.san);
+  const uiLang = normalizeLanguage(i18n.language);
   const coachReq = lastClassifiedMove ? () => ({
     url: '/api/coach/explain',
     body: {
@@ -932,10 +934,11 @@ export default function Play() {
       pv_san: [],
       history: moveSans.slice(0, lastClassifiedMove.ply - 1),
       user_perspective: true,
+      language: uiLang,
     },
   }) : (turn === userColor && coachConfigured ? () => ({
     url: '/api/coach/hint',
-    body: { fen, history: moveSans },
+    body: { fen, history: moveSans, language: uiLang },
   }) : null);
 
   const oppLabel = opponent ? opponent.display_name : (userColor === 'white' ? t('play.black') : t('play.white'));

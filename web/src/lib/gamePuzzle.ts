@@ -1,6 +1,8 @@
 // Train → "From your games": a puzzle is a position from one of your games
 // where you played a weaker move than the engine's (server/src/routes/train.ts).
 
+import type { Language } from './languages';
+
 export interface GamePuzzle {
   game_id: number;
   ply: number;
@@ -35,7 +37,7 @@ export function playedMoveArrow(p: GamePuzzle, atStart: boolean): { orig: string
 /** The coach's "why the engine's move beats yours" — the same request Game
  *  Review makes for your own move, so the answer is in your language and
  *  pitched at your audience (Settings), checked against the engine. */
-export function coachRequest(p: GamePuzzle): { url: string; body: Record<string, unknown> } {
+export function coachRequest(p: GamePuzzle, language?: Language): { url: string; body: Record<string, unknown> } {
   return {
     url: '/api/coach/explain',
     body: {
@@ -49,6 +51,7 @@ export function coachRequest(p: GamePuzzle): { url: string; body: Record<string,
       ...(p.eval_after_cp != null ? { eval_after_cp: p.eval_after_cp } : {}),
       pv_san: p.best_pv,
       user_perspective: true,
+      ...(language ? { language } : {}),
     },
   };
 }

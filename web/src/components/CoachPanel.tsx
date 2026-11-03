@@ -5,6 +5,7 @@ import { Sparkles, Volume2, VolumeX, Pause, Play, Info, GraduationCap, Puzzle } 
 import { useAuth } from '../state/auth';
 import { speak, cancel as cancelSpeak } from '../lib/tts';
 import { renderMarkdown, stripReasoning } from '../lib/markdown';
+import { normalizeLanguage } from '../lib/languages';
 import { ThinkingDots } from './Spinner';
 
 const MUTE_STORAGE_KEY = 'coach.mute';
@@ -41,7 +42,7 @@ interface Props {
 }
 
 export default function CoachPanel({ systemConfigured, request, autoPlay, triggerKey, debounceMs = 600, compact }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -78,14 +79,16 @@ export default function CoachPanel({ systemConfigured, request, autoPlay, trigge
 
     setText(''); setBusy(true); setError(null); setActions([]);
     const { url, body } = request();
-    setLastBody(body);
+    const uiLang = normalizeLanguage(i18n.language);
+    const bodyWithLang = { language: uiLang, ...body };
+    setLastBody(bodyWithLang);
     let acc = '';
     try {
       const res = await fetch(url, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'patzer' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(bodyWithLang),
         signal: ac.signal,
       });
       if (!res.ok || !res.body) {
@@ -127,11 +130,12 @@ export default function CoachPanel({ systemConfigured, request, autoPlay, trigge
     const content = s ?? text;
     if (!content.trim() || !user || mutedRef.current) return;
     setSpeaking(true);
+    const uiLang = normalizeLanguage(i18n.language);
     const u = speak(content, {
       voice: user.profile.tts_voice,
       rate: user.profile.tts_rate,
       pitch: user.profile.tts_pitch,
-      lang: user.profile.language,
+      lang: uiLang || user.profile.language,
     });
     if (u) u.onend = () => setSpeaking(false);
   }
