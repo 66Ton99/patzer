@@ -27,9 +27,11 @@
     "test:resume-ui": "tsx server/test/e2e/resume-ui.ts",
     "test:oidc": "tsx server/test/e2e/oidc-sso.ts",
     "verify:lessons": "node scripts/verify-lessons.mjs",
-    "build:tactics": "node scripts/build-tactics-set.mjs"
+    "build:tactics": "node scripts/build-tactics-set.mjs",
+    "openspec:validate": "OPENSPEC_TELEMETRY=0 npx @fission-ai/openspec validate --all --strict"
   },
   "devDependencies": {
+    "@fission-ai/openspec": "^1.16.1",
     "@testing-library/react": "^16.3.3",
     "@types/oidc-provider": "^9.12.1",
     "concurrently": "^9.0.1",

@@ -1,0 +1,4 @@
+schema: spec-driven
+context: |
+  Patzer — self-hosted, AI-coached private chess platform.
+  This directory contains OpenSpec specifications for system capabilities.

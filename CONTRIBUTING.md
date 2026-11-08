@@ -44,6 +44,8 @@ web/              React + Vite + Tailwind
   src/pages/      Route-level pages
   src/locales/    i18next dictionaries
   src/lib/        Sounds, TTS, markdown, helpers
+openspec/         OpenSpec capability specifications (openspec.dev)
+  changes/        Proposals, designs, and delta specs for pending features
 ```
 
 Two key invariants:
@@ -56,13 +58,27 @@ Two key invariants:
 ```bash
 npm run typecheck
 npm test
+npm run openspec:validate  # if touching openspec/ proposals or specifications
 npm run build
 ```
 
-All three must be green. CI runs them on Node 20 and 22, plus the regression suites below
+All must be green. CI runs them on Node 20 and 22, plus the regression suites below
 (`test:e2e`, `test:resume`, `test:oidc`, `test:ui`, `test:resume-ui`) against a real server, a Docker image
 build that has to boot, and — when lesson content changes — `verify:lessons`. A PR is only
 merged with all of it green.
+
+## Spec-driven development (OpenSpec)
+
+Major features and capability changes are specified using [OpenSpec](https://openspec.dev) under `openspec/changes/<change-name>/`. Each change includes:
+- `proposal.md`: Context, methodology, motivation, and user impact.
+- `design.md`: Architecture, SQLite data models, REST API design, and edge cases.
+- `tasks.md`: Detailed implementation task checklist (`- [ ] X.Y`).
+- `specs/<capability>/spec.md`: Delta requirements and BDD scenarios (`GIVEN / WHEN / THEN / AND`).
+
+Validate specifications locally before submitting:
+```bash
+npm run openspec:validate
+```
 
 **Every change comes with tests.** A new feature gets unit tests for its logic. A bug fix gets
 a regression test that **fails without the fix** — say so in the PR, ideally with the failing

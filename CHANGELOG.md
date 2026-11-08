@@ -6,6 +6,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Tactical training: The Woodpecker Method (OpenSpec)
+
+*(Specification only — implementation pending)*
+
+- **Cyclic tactical pattern training.** Complete OpenSpec architectural specification
+  for spaced repetition training over 6 cycles with exponential duration halving,
+  rest periods for neural consolidation, and subconscious pattern encoding.
+  Specification: [openspec/changes/add-woodpecker-training/](openspec/changes/add-woodpecker-training/)
+  and [docs/WOODPECKER.md](docs/WOODPECKER.md).
+- **Embedded tactics and blunder drills specification.** Slicing presets (`starter-100`, `easy-222`,
+  `club-300`, `master-500`) from embedded CC0 Lichess puzzles and personal game review
+  blunders with typed identifiers (`"lichess:<id>"` vs `"blunder:<id>"`).
+- **Server-authoritative timing and anti-cheat specification.** Clocks stamped on puzzle request,
+  capped at 10 minutes per attempt, re-stamped on retries, and accumulated in `elapsed_ms` across pauses.
+- **Strict and Practice modes specification.** Single-attempt calculation testing vs mistake
+  tracking with repeat tries, preserving true first-try accuracy.
+- **REST API & OpenAPI 3.1 contract.** Complete specification with session security,
+  profile ownership isolation, and cycle progression analytics.
+
 ### Single sign-on (OpenID Connect)
 
 - **Sign in with Authentik, Keycloak or any OpenID Connect provider.** Set

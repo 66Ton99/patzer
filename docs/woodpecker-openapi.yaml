@@ -1,0 +1,658 @@
+openapi: 3.1.0
+info:
+  title: Patzer Woodpecker Training API
+  description: REST API for cyclical spaced-repetition tactical drilling using The Woodpecker Method in Patzer.
+  version: 1.0.0
+servers:
+  - url: /api/woodpecker
+    description: Embedded Patzer server
+
+security:
+  - cookieAuth: []
+
+paths:
+  /presets:
+    get:
+      summary: List built-in puzzle presets
+      description: Returns pre-configured in-code tactical puzzle sets (Starter 100, Easy 222, Club 300, Master 500).
+      responses:
+        '200':
+          description: Available puzzle presets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [presets]
+                properties:
+                  presets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WoodpeckerPreset'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /programs:
+    get:
+      summary: List user training programs
+      description: Retrieves active, resting, paused, and archived Woodpecker programs belonging exclusively to the authenticated profile.
+      responses:
+        '200':
+          description: Array of programs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [programs]
+                properties:
+                  programs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WoodpeckerProgramSummary'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      summary: Create a new training program
+      description: Creates and freezes a new Woodpecker program from a preset, custom theme filter, or user blunders. Enforces limit of 3 concurrent active programs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProgramRequest'
+      responses:
+        '201':
+          description: Program created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [program]
+                properties:
+                  program:
+                    $ref: '#/components/schemas/WoodpeckerProgramDetails'
+        '400':
+          description: Invalid input parameters, active program limit reached (program_limit_reached), invalid theme (invalid_theme), insufficient theme puzzles (insufficient_puzzles), or insufficient blunders (insufficient_blunders)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /programs/{id}:
+    get:
+      summary: Program and current cycle details
+      description: Returns program details, active cycle, and cycle history. Rejects with 404 if not owned by the active profile.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Program details with all cycle history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WoodpeckerProgramDetails'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Delete training program
+      description: Hard-deletes a program and cascades to all its cycles and attempts. Rejects with 404 if not owned by the active profile.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /programs/{id}/archive:
+    post:
+      summary: Archive training program
+      description: Soft-archives an active or completed program, hiding it from the active training tab while preserving cycle records.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "archived"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /programs/{id}/next:
+    get:
+      summary: Next puzzle to solve in current cycle
+      description: Stamps server start time (`puzzle_started_at`) on the active cycle and serves the next puzzle payload.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Next puzzle details or cycle completion flag
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [is_cycle_finished]
+                properties:
+                  puzzle:
+                    $ref: '#/components/schemas/WoodpeckerPuzzle'
+                  progress:
+                    type: object
+                    properties:
+                      current_index:
+                        type: integer
+                        example: 42
+                      total:
+                        type: integer
+                        example: 300
+                      cycle_number:
+                        type: integer
+                        example: 2
+                      cycle_time_spent_sec:
+                        type: integer
+                        example: 1840
+                  is_cycle_finished:
+                    type: boolean
+                    example: false
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Cycle is paused or resting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /programs/{id}/attempt:
+    post:
+      summary: Record puzzle attempt result
+      description: Records attempt result, validates elapsed duration using server start timestamp, and updates metrics.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [puzzle_id, outcome, time_spent_ms]
+              properties:
+                puzzle_id:
+                  type: string
+                  example: "lichess:EtIHJ"
+                outcome:
+                  type: string
+                  enum: [solved, failed, retry_mistake]
+                  description: "Outcome: 'solved' (completed), 'failed' (strict mode miss), or 'retry_mistake' (practice mode incorrect move)"
+                  example: "solved"
+                time_spent_ms:
+                  type: integer
+                  description: "Client-measured active duration in milliseconds (used for display sync)"
+                  example: 12450
+                played_moves:
+                  type: array
+                  items:
+                    type: string
+                  example: ["b2e5", "g3e5"]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recorded:
+                    type: boolean
+                  cycle_completed:
+                    type: boolean
+                  next_cycle_number:
+                    type: ["integer", "null"]
+                    example: 2
+                  rest_until:
+                    type: ["string", "null"]
+                    format: date-time
+                    example: "2026-11-11T12:00:00Z"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Cycle is not in progress or already completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /programs/{id}/pause:
+    post:
+      summary: Pause cycle timer
+      description: Freezes cycle stopwatch, accumulates active elapsed duration into elapsed_ms, and obscures chessboard.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "paused"
+                  elapsed_ms:
+                    type: integer
+                    example: 214500
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Cycle is already paused or completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /programs/{id}/resume:
+    post:
+      summary: Resume cycle timer
+      description: Resumes cycle stopwatch and stamps fresh server start time for active puzzle.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "in_progress"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Cycle is not in a paused state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /programs/{id}/skip-rest:
+    post:
+      summary: Skip rest period and immediately launch next cycle
+      description: Bypasses remaining neural consolidation rest countdown and starts next cycle immediately.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  current_cycle:
+                    type: integer
+                    example: 2
+                  status:
+                    type: string
+                    example: "active"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Program is not in resting status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /programs/{id}/summary:
+    get:
+      summary: Complete analytics and cycle comparison
+      description: Computes overall speedup factor, accuracy progression curve, and stubborn blunders list.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgramSummaryAnalytics'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: patzer_session
+      description: Patzer session cookie established on login
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required or session expired
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: Resource not found or owned by a different profile
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: "Program not found"
+        code:
+          type: string
+          example: "not_found"
+
+    WoodpeckerPreset:
+      type: object
+      required: [id, title, description, difficulty, puzzle_count, themes]
+      properties:
+        id:
+          type: string
+          example: "starter-100"
+        title:
+          type: string
+          example: "Woodpecker Foundations"
+        description:
+          type: string
+          example: "100 accessible tactical motifs to develop basic subconscious pattern instincts."
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        puzzle_count:
+          type: integer
+          example: 100
+        rating_min:
+          type: integer
+          example: 1000
+        rating_max:
+          type: integer
+          example: 1400
+        themes:
+          type: array
+          items:
+            type: string
+          example: ["mate", "fork", "pin", "hanging"]
+
+    CreateProgramRequest:
+      type: object
+      required: [title, source_type]
+      properties:
+        title:
+          type: string
+          example: "Woodpecker Summer Sprint"
+        source_type:
+          type: string
+          enum: [preset, theme, blunders]
+          example: "preset"
+        preset_id:
+          type: ["string", "null"]
+          example: "starter-100"
+        theme:
+          type: ["string", "null"]
+          example: "fork"
+        puzzle_count:
+          type: integer
+          default: 100
+          example: 100
+        rating_min:
+          type: ["integer", "null"]
+          example: 1200
+        rating_max:
+          type: ["integer", "null"]
+          example: 1600
+        target_cycles:
+          type: integer
+          default: 6
+          minimum: 3
+          maximum: 7
+          example: 6
+        mode:
+          type: string
+          enum: [strict, practice]
+          default: strict
+        rest_duration_hours:
+          type: integer
+          default: 24
+          example: 24
+
+    WoodpeckerProgramSummary:
+      type: object
+      required: [id, title, total_puzzles, current_cycle, target_cycles, mode, status]
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "Woodpecker Summer Sprint"
+        total_puzzles:
+          type: integer
+          example: 100
+        current_cycle:
+          type: integer
+          example: 2
+        target_cycles:
+          type: integer
+          example: 6
+        mode:
+          type: string
+          enum: [strict, practice]
+          example: "strict"
+        status:
+          type: string
+          enum: [active, paused, resting, completed, archived]
+          example: "active"
+        accuracy_last_cycle:
+          type: number
+          format: float
+          example: 84.5
+        time_last_cycle_sec:
+          type: integer
+          example: 4120
+
+    WoodpeckerProgramDetails:
+      allOf:
+        - $ref: '#/components/schemas/WoodpeckerProgramSummary'
+        - type: object
+          properties:
+            cycles:
+              type: array
+              items:
+                $ref: '#/components/schemas/CycleDetails'
+            rest_until:
+              type: ["string", "null"]
+              format: date-time
+              example: "2026-11-11T12:00:00Z"
+
+    CycleDetails:
+      type: object
+      required: [cycle_number, status, actual_duration_sec, elapsed_ms, solved_puzzles, total_puzzles, accuracy_pct]
+      properties:
+        cycle_number:
+          type: integer
+          example: 1
+        target_duration_sec:
+          type: ["integer", "null"]
+          example: 3600
+        actual_duration_sec:
+          type: integer
+          example: 5400
+        elapsed_ms:
+          type: integer
+          example: 5400000
+        paused_at:
+          type: ["string", "null"]
+          format: date-time
+        puzzle_started_at:
+          type: ["string", "null"]
+          format: date-time
+        solved_puzzles:
+          type: integer
+          example: 78
+        total_puzzles:
+          type: integer
+          example: 100
+        accuracy_pct:
+          type: number
+          example: 78.0
+        avg_time_per_puzzle_sec:
+          type: number
+          example: 54.0
+        status:
+          type: string
+          enum: [in_progress, paused, completed]
+          example: "completed"
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: ["string", "null"]
+          format: date-time
+        rest_until:
+          type: ["string", "null"]
+          format: date-time
+
+    WoodpeckerPuzzle:
+      type: object
+      required: [id, fen, moves, has_setup_move, themes]
+      properties:
+        id:
+          type: string
+          description: "Typed puzzle identifier ('lichess:<id>' or 'blunder:<id>')"
+          example: "lichess:EtIHJ"
+        fen:
+          type: string
+          description: "Position before opponent setup move (for Lichess puzzles) or before user move (for blunder puzzles)"
+          example: "3r3k/p4p2/2pr1qpp/4pB2/4P2P/P5QK/PBPn1PR1/8 b - - 1 39"
+        moves:
+          type: array
+          items:
+            type: string
+          description: "UCI move sequence: opponent setup move first if has_setup_move is true, otherwise player move first"
+          example: ["g6f5", "b2e5", "f6e5", "g3e5"]
+        has_setup_move:
+          type: boolean
+          description: "True if moves[0] is an opponent setup move to be played automatically, false if board is ready for player move"
+          example: true
+        rating:
+          type: ["integer", "null"]
+          description: "Tactical rating of the puzzle, or null for unrated personal blunder positions"
+          example: 1226
+        themes:
+          type: array
+          items:
+            type: string
+          example: ["fork", "pin"]
+
+    ProgramSummaryAnalytics:
+      type: object
+      required: [program_id, speedup_factor, accuracy_delta_pct, cycle_metrics]
+      properties:
+        program_id:
+          type: integer
+          example: 1
+        speedup_factor:
+          type: number
+          example: 3.4
+          description: "Ratio of Cycle 1 actual duration to final cycle actual duration"
+        accuracy_delta_pct:
+          type: number
+          example: 18.5
+          description: "Percentage point gain in accuracy from Cycle 1 to final cycle"
+        cycle_metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/CycleDetails'
+        stubborn_puzzles:
+          type: array
+          items:
+            type: object
+            required: [puzzle_id, failed_in_cycles, themes]
+            properties:
+              puzzle_id:
+                type: string
+                example: "lichess:EtIHJ"
+              failed_in_cycles:
+                type: array
+                items:
+                  type: integer
+                example: [1, 2]
+              themes:
+                type: array
+                items:
+                  type: string
+                example: ["fork", "pin"]
