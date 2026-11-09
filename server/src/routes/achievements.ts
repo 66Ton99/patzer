@@ -10,6 +10,7 @@ import { db } from '../db.js';
 import { requireAuth } from '../auth/middleware.js';
 import { SCORING_VERSION } from '../chess/classifier.js';
 import { learnTotals } from '../learnProgress.js';
+import { woodpeckerAchievementStats } from '../chess/woodpecker.js';
 
 const router = new Hono();
 router.use('*', requireAuth);
@@ -34,6 +35,9 @@ const CATALOG: CatalogEntry[] = [
   { id: 'opening_explorer',title: 'Opening Explorer',    description: 'Played 10 different openings.',                   icon: 'Compass',   target: 10,  category: 'mastery' },
   { id: 'puzzle_master',   title: 'Puzzle Master',       description: 'Solved 50 puzzles.',                              icon: 'Target',    target: 50,  category: 'tactics' },
   { id: 'tactician',       title: 'Tactician',           description: '80% puzzle accuracy with at least 20 attempts.',  icon: 'Zap',       target: 20,  category: 'tactics' },
+  { id: 'woodpecker_finisher',   title: 'Woodpecker Graduate',   description: 'Completed all target cycles of a Woodpecker training program.', icon: 'Repeat', target: 1, category: 'tactics' },
+  { id: 'pattern_machine',       title: 'Pattern Machine',       description: 'Achieved 95% or higher accuracy in the final Woodpecker cycle.', icon: 'Zap',    target: 1, category: 'tactics' },
+  { id: 'subconscious_instinct', title: 'Subconscious Instinct', description: 'Achieved a 3x or greater speedup between the first and final cycle.', icon: 'Flame', target: 1, category: 'tactics' },
   { id: 'streaker_3',      title: 'Heating Up',          description: 'Win 3 games in a row.',                           icon: 'Flame',     target: 3,   category: 'streaks' },
   { id: 'streaker_5',      title: 'On Fire',             description: 'Win 5 games in a row.',                           icon: 'Flame',     target: 5,   category: 'streaks' },
   { id: 'streaker_10',     title: 'Unstoppable',         description: 'Win 10 games in a row.',                          icon: 'Flame',     target: 10,  category: 'streaks' },
@@ -53,6 +57,9 @@ interface Stats {
   longestStreak: number;
   lessons: number;
   lessonStars: number;
+  woodpeckerFinisher: boolean;
+  patternMachine: boolean;
+  subconsciousInstinct: boolean;
 }
 
 function computeStats(userId: number): Stats {
@@ -99,6 +106,7 @@ function computeStats(userId: number): Stats {
   }
 
   const learn = learnTotals(userId);
+  const wp = woodpeckerAchievementStats(userId);
 
   return {
     games: g.games ?? 0,
@@ -111,6 +119,9 @@ function computeStats(userId: number): Stats {
     longestStreak: longest,
     lessons: learn.lessons,
     lessonStars: learn.stars,
+    woodpeckerFinisher: wp.finishedProgram,
+    patternMachine: wp.patternMachine,
+    subconsciousInstinct: wp.subconsciousInstinct,
   };
 }
 
@@ -131,6 +142,9 @@ function progressFor(id: string, s: Stats): number {
       if (acc < 0.8) return 0;
       return Math.min(s.puzzleAttempts, 20);
     }
+    case 'woodpecker_finisher':   return s.woodpeckerFinisher ? 1 : 0;
+    case 'pattern_machine':       return s.patternMachine ? 1 : 0;
+    case 'subconscious_instinct': return s.subconsciousInstinct ? 1 : 0;
     case 'streaker_3':       return Math.min(s.longestStreak, 3);
     case 'streaker_5':       return Math.min(s.longestStreak, 5);
     case 'streaker_10':      return Math.min(s.longestStreak, 10);

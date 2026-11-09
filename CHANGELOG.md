@@ -6,24 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Tactical training: The Woodpecker Method (OpenSpec)
+### Tactical training: The Woodpecker Method
 
-*(Specification only — implementation pending)*
-
-- **Cyclic tactical pattern training.** Complete OpenSpec architectural specification
-  for spaced repetition training over 6 cycles with exponential duration halving,
-  rest periods for neural consolidation, and subconscious pattern encoding.
+- **Cyclic tactical pattern training.** Full implementation of spaced-repetition
+  drilling over 6 cycles with exponential duration halving ($T_K = \max(300, \lceil T_{K-1}/2 \rceil)$),
+  rest intervals for neural consolidation, and subconscious pattern encoding.
   Specification: [openspec/changes/add-woodpecker-training/](openspec/changes/add-woodpecker-training/)
   and [docs/WOODPECKER.md](docs/WOODPECKER.md).
-- **Embedded tactics and blunder drills specification.** Slicing presets (`starter-100`, `easy-222`,
-  `club-300`, `master-500`) from embedded CC0 Lichess puzzles and personal game review
-  blunders with typed identifiers (`"lichess:<id>"` vs `"blunder:<id>"`).
-- **Server-authoritative timing and anti-cheat specification.** Clocks stamped on puzzle request,
-  capped at 10 minutes per attempt, re-stamped on retries, and accumulated in `elapsed_ms` across pauses.
-- **Strict and Practice modes specification.** Single-attempt calculation testing vs mistake
-  tracking with repeat tries, preserving true first-try accuracy.
-- **REST API & OpenAPI 3.1 contract.** Complete specification with session security,
-  profile ownership isolation, and cycle progression analytics.
+- **Embedded tactics and personal blunder drills.** Slicing presets (`starter-100`, `easy-222`,
+  `club-300`, `master-500`), thematic sets (`source_type: 'theme'`), and personal game review
+  blunders (`source_type: 'blunders'`) with typed identifiers (`"lichess:<id>"` vs `"blunder:<id>"`)
+  and `has_setup_move` normalization.
+- **Server-authoritative timing and anti-cheat.** Clocks stamped on puzzle request,
+  capped at 10 minutes per attempt, re-stamped on Practice Mode retries, and accumulated in `elapsed_ms`
+  across pauses, paired with an accessible opaque pause overlay and auto-pause on tab blur.
+- **Strict and Practice modes.** Single-attempt calculation testing vs mistake
+  tracking with repeat tries, preserving true first-try accuracy and decoupling drills from
+  global Glicko puzzle ratings and blunder spaced-repetition queues.
+- **Analytics, AI Coach & Achievements.** Cycle progression metrics, speedup factor ($S$),
+  stubborn multi-cycle blunder review with AI Coach explanations, and three new achievements
+  (`woodpecker_finisher`, `pattern_machine`, `subconscious_instinct`).
 
 ### Single sign-on (OpenID Connect)
 

@@ -12,6 +12,7 @@ import { Chess } from 'chess.js';
 import { Target, RotateCcw, ArrowRight, Lightbulb, Check, X, Trophy, BookOpen, Zap, Eye, Loader2, Repeat } from 'lucide-react';
 import BetaBadge from '../components/BetaBadge';
 import TacticsPuzzles from '../components/TacticsPuzzles';
+import WoodpeckerDashboard from '../components/WoodpeckerDashboard';
 import ChessBoard from '../components/ChessBoard';
 import { api } from '../api';
 import { useAuth } from '../state/auth';
@@ -28,8 +29,11 @@ interface Stats { total: number; solved: number; failed: number; accuracy: numbe
 export default function Train() {
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'puzzles' ? 'puzzles' : 'mine';
-  const setTab = (next: 'mine' | 'puzzles') => setParams(next === 'puzzles' ? { tab: 'puzzles' } : {}, { replace: true });
+  const rawTab = params.get('tab');
+  const tab: 'mine' | 'puzzles' | 'woodpecker' =
+    rawTab === 'puzzles' ? 'puzzles' : rawTab === 'woodpecker' ? 'woodpecker' : 'mine';
+  const setTab = (next: 'mine' | 'puzzles' | 'woodpecker') =>
+    setParams(next === 'mine' ? {} : { tab: next }, { replace: true });
   const tabClass = (active: boolean) => `tab-pill flex items-center gap-1.5 ${active ? 'is-active' : ''}`;
 
   return (
@@ -42,8 +46,14 @@ export default function Train() {
           <Zap className="h-4 w-4" /> {t('train.tabs.puzzles')}
           <BetaBadge />
         </button>
+        <button role="tab" aria-selected={tab === 'woodpecker'} onClick={() => setTab('woodpecker')} className={tabClass(tab === 'woodpecker')}>
+          <Repeat className="h-4 w-4" /> {t('woodpecker.title')}
+          <BetaBadge />
+        </button>
       </div>
-      {tab === 'puzzles' ? (
+      {tab === 'woodpecker' ? (
+        <WoodpeckerDashboard />
+      ) : tab === 'puzzles' ? (
         <>
           <header>
             <h1 className="page-h1 flex items-center gap-2"><Zap className="h-6 w-6 text-gold-600" />{t('train.tabs.puzzles')}</h1>

@@ -412,6 +412,67 @@ ensureColumn('users', 'created_via', "TEXT NOT NULL DEFAULT 'password'");
 // that has an analysis row but no cached review yet. No dedicated column is
 // needed: `analyses.prose_json` is the cache and its absence is the work queue.
 
+// Woodpecker Method tactical training — cyclical spaced-repetition drilling
+// over a frozen set of puzzles with exponential duration halving and rest
+// intervals for neural consolidation (see chess/woodpecker.ts).
+db.exec(`CREATE TABLE IF NOT EXISTS woodpecker_programs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  source_type TEXT NOT NULL CHECK(source_type IN ('preset', 'theme', 'blunders')),
+  source_params TEXT,
+  puzzle_ids TEXT NOT NULL,
+  total_puzzles INTEGER NOT NULL,
+  target_cycles INTEGER NOT NULL DEFAULT 6 CHECK(target_cycles BETWEEN 3 AND 7),
+  current_cycle INTEGER NOT NULL DEFAULT 1,
+  mode TEXT NOT NULL DEFAULT 'strict' CHECK(mode IN ('strict', 'practice')),
+  rest_duration_hours INTEGER NOT NULL DEFAULT 24,
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'paused', 'resting', 'completed', 'archived')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  completed_at TEXT
+)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_woodpecker_programs_user ON woodpecker_programs(user_id, status)`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS woodpecker_cycles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  program_id INTEGER NOT NULL REFERENCES woodpecker_programs(id) ON DELETE CASCADE,
+  cycle_number INTEGER NOT NULL,
+  target_duration_sec INTEGER,
+  actual_duration_sec INTEGER NOT NULL DEFAULT 0,
+  elapsed_ms INTEGER NOT NULL DEFAULT 0,
+  paused_at TEXT,
+  puzzle_started_at TEXT,
+  total_puzzles INTEGER NOT NULL,
+  solved_puzzles INTEGER NOT NULL DEFAULT 0,
+  accuracy_pct REAL NOT NULL DEFAULT 0.0,
+  avg_time_per_puzzle_sec REAL NOT NULL DEFAULT 0.0,
+  status TEXT NOT NULL DEFAULT 'in_progress' CHECK(status IN ('in_progress', 'paused', 'completed')),
+  started_at TEXT NOT NULL DEFAULT (datetime('now')),
+  completed_at TEXT,
+  rest_until TEXT,
+  UNIQUE(program_id, cycle_number)
+)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_woodpecker_cycles_program ON woodpecker_cycles(program_id, cycle_number)`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS woodpecker_attempts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cycle_id INTEGER NOT NULL REFERENCES woodpecker_cycles(id) ON DELETE CASCADE,
+  puzzle_id TEXT NOT NULL,
+  first_try_solved INTEGER NOT NULL CHECK(first_try_solved IN (0, 1)),
+  solved INTEGER NOT NULL CHECK(solved IN (0, 1)),
+  mistakes_count INTEGER NOT NULL DEFAULT 0,
+  time_spent_ms INTEGER NOT NULL,
+  played_moves_uci TEXT,
+  blunder_repeated INTEGER NOT NULL DEFAULT 0 CHECK(blunder_repeated IN (0, 1)),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(cycle_id, puzzle_id)
+)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_woodpecker_attempts_cycle ON woodpecker_attempts(cycle_id)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_woodpecker_attempts_puzzle ON woodpecker_attempts(puzzle_id)`);
+
 // Open signup defaults ON — the operator explicitly wants family members to
 // self-register. Admins can flip it off from the Admin → System console. Seeded
 // only when absent so a deliberate later 'off' survives restarts.
