@@ -1370,6 +1370,18 @@
     "star_collector": {
       "title": "Sternensammler",
       "description": "100 Sterne im Lernbereich gesammelt."
+    },
+    "woodpecker_finisher": {
+      "title": "Woodpecker-Absolvent",
+      "description": "Schließe alle Zielzyklen eines Woodpecker-Trainingsprogramms ab."
+    },
+    "pattern_machine": {
+      "title": "Mustermaschine",
+      "description": "Erreiche mindestens 95 % Genauigkeit im letzten Zyklus eines Woodpecker-Programms."
+    },
+    "subconscious_instinct": {
+      "title": "Unterbewusster Instinkt",
+      "description": "Schließe den letzten Woodpecker-Zyklus mindestens 3x schneller ab als Zyklus 1."
     }
   },
   "woodpecker": {
@@ -1429,6 +1441,32 @@
       "resting": "Ruhephase",
       "completed": "Abgeschlossen",
       "archived": "Archiviert"
-    }
+    },
+    "presets": {
+      "starter-100": {
+        "title": "Woodpecker-Grundlagen",
+        "description": "100 zugängliche taktische Motive zur Entwicklung grundlegender Musterinstinkte."
+      },
+      "easy-222": {
+        "title": "Taktische Wendigkeit 222",
+        "description": "222 elementare Taktikaufgaben für schnelles Scannen und sicheres Erkennen."
+      },
+      "club-300": {
+        "title": "Turnierspieler 300",
+        "description": "300 mehrzügige Kombinationen und Opfer für ambitionierte Vereinsspieler."
+      },
+      "master-500": {
+        "title": "Meister-Herausforderung 500",
+        "description": "500 komplexe taktische Operationen für tiefe Berechnung und Meisterintuition."
+      }
+    },
+    "errors": {
+      "insufficient_blunders": "Mindestens 20 aufgezeichnete Patzer sind erforderlich, um ein Woodpecker-Set zu erstellen. Spiele und analysiere zuerst weitere Partien.",
+      "program_limit_reached": "Du kannst maximal 3 aktive Woodpecker-Programme gleichzeitig haben. Archiviere oder lösche zuerst eines.",
+      "insufficient_puzzles": "Weniger als 20 Aufgaben entsprechen dem gewählten Motiv und Wertungsbereich.",
+      "invalid_preset": "Ungültiges Preset ausgewählt.",
+      "invalid_theme": "Ungültiges taktisches Motiv ausgewählt."
+    },
+    "solutionWas": "Lösung: {{line}}"
   }
 }

@@ -408,7 +408,7 @@ function ActivePuzzleBoard({
           {status === 'wrong' && (
             <div className="flex items-center justify-between rounded-lg bg-move-mistake/10 px-3 py-2 text-sm text-move-mistake">
               <span className="flex items-center gap-1.5 font-medium">
-                <X className="h-4 w-4" /> {t('train.notBest')}
+                <X className="h-4 w-4" /> {t('train.wrong')}
               </span>
               <span className="text-xs">{t('woodpecker.keepTrying')}</span>
             </div>
@@ -420,7 +420,7 @@ function ActivePuzzleBoard({
                 <X className="h-4 w-4" /> {t('woodpecker.strictFailed')}
               </div>
               <div className="text-xs text-chesscom-700 dark:text-chesscom-200">
-                {t('train.puzzles.solutionWas', { line: solutionSan })}
+                {t('woodpecker.solutionWas', { line: solutionSan })}
               </div>
             </div>
           )}

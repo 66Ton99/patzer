@@ -1370,6 +1370,18 @@
     "star_collector": {
       "title": "Star Collector",
       "description": "Collected 100 stars in Learn."
+    },
+    "woodpecker_finisher": {
+      "title": "Woodpecker Finisher",
+      "description": "Complete all target cycles of a Woodpecker tactical training program."
+    },
+    "pattern_machine": {
+      "title": "Pattern Machine",
+      "description": "Reach 95% or higher accuracy in the final cycle of a Woodpecker program."
+    },
+    "subconscious_instinct": {
+      "title": "Subconscious Instinct",
+      "description": "Complete a final Woodpecker cycle at least 3x faster than your Cycle 1 baseline."
     }
   },
   "woodpecker": {
@@ -1429,6 +1441,32 @@
       "resting": "Resting",
       "completed": "Completed",
       "archived": "Archived"
-    }
+    },
+    "presets": {
+      "starter-100": {
+        "title": "Woodpecker Foundations",
+        "description": "100 accessible tactical motifs to develop basic subconscious pattern instincts."
+      },
+      "easy-222": {
+        "title": "Tactical Agility 222",
+        "description": "222 elementary tactical problems for rapid scanning and confidence building."
+      },
+      "club-300": {
+        "title": "Club Competitor 300",
+        "description": "300 multi-move combinations and sacrifices designed for club players."
+      },
+      "master-500": {
+        "title": "Master Challenge 500",
+        "description": "500 complex tactical operations for deep calculation and master-level intuition."
+      }
+    },
+    "errors": {
+      "insufficient_blunders": "At least 20 recorded blunders are required to generate a Woodpecker training set. Play and analyze more games first.",
+      "program_limit_reached": "You can have at most 3 active Woodpecker programs at a time. Archive or delete one first.",
+      "insufficient_puzzles": "Fewer than 20 puzzles match the selected theme and rating bounds.",
+      "invalid_preset": "Invalid preset selected.",
+      "invalid_theme": "Invalid tactical theme selected."
+    },
+    "solutionWas": "Solution: {{line}}"
   }
 }

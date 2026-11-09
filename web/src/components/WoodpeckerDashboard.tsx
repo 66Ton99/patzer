@@ -136,7 +136,7 @@ export default function WoodpeckerDashboard() {
     return (
       <WoodpeckerTrainer
         programId={activeProgram.id}
-        programTitle={activeProgram.title}
+        programTitle={localizeProgramTitle(activeProgram, presets, t)}
         initialPaused={activeProgram.status === 'paused'}
         onBack={() => {
           setActiveProgram(null);
@@ -188,6 +188,7 @@ export default function WoodpeckerDashboard() {
             <ProgramCard
               key={prog.id}
               program={prog}
+              presets={presets}
               onTrain={() => setActiveProgram(prog)}
               onSummary={() => setSummaryProgram(prog)}
               onRequestSkipRest={() => setSkipRestConfirmId(prog.id)}
@@ -232,6 +233,7 @@ export default function WoodpeckerDashboard() {
       {summaryProgram && (
         <ProgramSummaryModal
           program={summaryProgram}
+          presets={presets}
           onClose={() => setSummaryProgram(null)}
         />
       )}
@@ -239,8 +241,33 @@ export default function WoodpeckerDashboard() {
   );
 }
 
+function localizeProgramTitle(
+  program: ProgramSummary,
+  presets: Preset[],
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  const matched = presets.find((p) => p.title === program.title || (program.source_type === 'preset' && p.puzzle_count === program.total_puzzles && p.description === program.description));
+  if (matched) {
+    return t(`woodpecker.presets.${matched.id}.title`, { defaultValue: program.title });
+  }
+  return program.title;
+}
+
+function localizeProgramDescription(
+  program: ProgramSummary,
+  presets: Preset[],
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  const matched = presets.find((p) => p.description === program.description || (program.source_type === 'preset' && p.puzzle_count === program.total_puzzles));
+  if (matched && program.description) {
+    return t(`woodpecker.presets.${matched.id}.description`, { defaultValue: program.description });
+  }
+  return program.description;
+}
+
 function ProgramCard({
   program,
+  presets,
   onTrain,
   onSummary,
   onRequestSkipRest,
@@ -248,6 +275,7 @@ function ProgramCard({
   onDelete,
 }: {
   program: ProgramSummary;
+  presets: Preset[];
   onTrain: () => void;
   onSummary: () => void;
   onRequestSkipRest: () => void;
@@ -271,14 +299,17 @@ function ProgramCard({
     return { hours, mins };
   })();
 
+  const displayTitle = localizeProgramTitle(program, presets, t);
+  const displayDesc = localizeProgramDescription(program, presets, t);
+
   return (
     <div className="card flex flex-col justify-between gap-4 p-4">
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="text-base font-bold text-chesscom-900 dark:text-chesscom-100">{program.title}</h3>
-            {program.description && (
-              <p className="line-clamp-2 text-xs text-chesscom-500">{program.description}</p>
+            <h3 className="text-base font-bold text-chesscom-900 dark:text-chesscom-100">{displayTitle}</h3>
+            {displayDesc && (
+              <p className="line-clamp-2 text-xs text-chesscom-500">{displayDesc}</p>
             )}
           </div>
           <span
@@ -395,14 +426,19 @@ function CreateProgramModal({
     const selectedPreset = presets.find((p) => p.id === presetId);
     const defaultTitle =
       sourceType === 'preset'
-        ? selectedPreset?.title ?? 'Woodpecker Foundations'
+        ? t(`woodpecker.presets.${presetId}.title`, { defaultValue: selectedPreset?.title ?? 'Woodpecker Foundations' })
         : sourceType === 'theme'
-        ? `${t(`train.puzzles.themes.${theme}`)} Woodpecker`
+        ? `${t(`train.puzzles.themes.${theme}`)} (${t('woodpecker.title')})`
         : t('woodpecker.sourceBlunders');
+    const defaultDesc =
+      sourceType === 'preset'
+        ? t(`woodpecker.presets.${presetId}.description`, { defaultValue: selectedPreset?.description ?? '' })
+        : '';
 
     try {
       const res = await api.post<{ program: ProgramSummary }>('/api/woodpecker/programs', {
         title: title.trim() || defaultTitle,
+        description: defaultDesc,
         source_type: sourceType,
         preset_id: sourceType === 'preset' ? presetId : null,
         theme: sourceType === 'theme' ? theme : null,
@@ -412,7 +448,9 @@ function CreateProgramModal({
       });
       onCreated(res.program);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const code = (err as { data?: { code?: string } })?.data?.code;
+      const fallbackMsg = err instanceof Error ? err.message : String(err);
+      setError(code ? t(`woodpecker.errors.${code}`, { defaultValue: fallbackMsg }) : fallbackMsg);
     } finally {
       setBusy(false);
     }
@@ -489,9 +527,11 @@ function CreateProgramModal({
                 />
                 <div>
                   <div className="font-semibold text-chesscom-900 dark:text-chesscom-100">
-                    {pr.title} ({pr.puzzle_count})
+                    {t(`woodpecker.presets.${pr.id}.title`, { defaultValue: pr.title })} ({pr.puzzle_count})
                   </div>
-                  <div className="text-chesscom-500">{pr.description}</div>
+                  <div className="text-chesscom-500">
+                    {t(`woodpecker.presets.${pr.id}.description`, { defaultValue: pr.description })}
+                  </div>
                 </div>
               </label>
             ))}
@@ -599,9 +639,11 @@ function CreateProgramModal({
 
 function ProgramSummaryModal({
   program,
+  presets,
   onClose,
 }: {
   program: ProgramSummary;
+  presets: Preset[];
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -673,7 +715,9 @@ function ProgramSummaryModal({
       <div className="card max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-bold text-chesscom-900 dark:text-chesscom-100">{program.title}</h3>
+            <h3 className="text-base font-bold text-chesscom-900 dark:text-chesscom-100">
+              {localizeProgramTitle(program, presets, t)}
+            </h3>
             <p className="text-xs text-chesscom-500">{t('woodpecker.analytics')}</p>
           </div>
           <button onClick={onClose} className="text-chesscom-400 hover:text-chesscom-600">

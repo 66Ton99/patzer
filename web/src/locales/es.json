@@ -886,6 +886,46 @@
       "resting": "Descansando",
       "completed": "Completado",
       "archived": "Archivado"
+    },
+    "presets": {
+      "starter-100": {
+        "title": "Fundamentos Woodpecker",
+        "description": "100 motivos tácticos accesibles para desarrollar instintos básicos de patrones."
+      },
+      "easy-222": {
+        "title": "Agilidad Táctica 222",
+        "description": "222 problemas tácticos elementales para el escaneo rápido y la confianza."
+      },
+      "club-300": {
+        "title": "Competidor de Club 300",
+        "description": "300 combinaciones de varias jugadas y sacrificios diseñados para jugadores de club."
+      },
+      "master-500": {
+        "title": "Desafío Maestro 500",
+        "description": "500 operaciones tácticas complejas para el cálculo profundo y la intuición maestra."
+      }
+    },
+    "errors": {
+      "insufficient_blunders": "Se requieren al menos 20 errores graves registrados para generar un repertorio Woodpecker. Juega y analiza más partidas primero.",
+      "program_limit_reached": "Puedes tener como máximo 3 programas Woodpecker activos a la vez. Archiva o elimina uno primero.",
+      "insufficient_puzzles": "Menos de 20 problemas coinciden con el tema y rango de Elo seleccionados.",
+      "invalid_preset": "Repertorio seleccionado no válido.",
+      "invalid_theme": "Tema táctico seleccionado no válido."
+    },
+    "solutionWas": "Solución: {{line}}"
+  },
+  "achievements": {
+    "woodpecker_finisher": {
+      "title": "Finalizador Woodpecker",
+      "description": "Completa todos los ciclos objetivo de un programa de entrenamiento Woodpecker."
+    },
+    "pattern_machine": {
+      "title": "Máquina de Patrones",
+      "description": "Alcanza un 95% o más de precisión en el ciclo final de un programa Woodpecker."
+    },
+    "subconscious_instinct": {
+      "title": "Instinto Subconsciente",
+      "description": "Completa el ciclo final de Woodpecker al menos 3 veces más rápido que el Ciclo 1."
     }
   }
 }
