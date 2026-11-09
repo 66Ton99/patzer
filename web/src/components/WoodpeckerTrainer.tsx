@@ -314,8 +314,11 @@ function ActivePuzzleBoard({
   }, [puzzle, startSolutionIndex]);
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,520px)_1fr]">
-      <div className="relative mx-auto w-full max-w-[520px]" aria-hidden={paused}>
+    <div className="flex flex-col gap-4 lg:flex-row">
+      <div
+        className={`relative mx-auto w-full lg:max-w-[640px] lg:flex-1 board-theme-${user?.profile.board_theme ?? 'green'}`}
+        aria-hidden={paused}
+      >
         <ChessBoard
           resetKey={boardKey}
           fen={pos.fen}
@@ -349,7 +352,7 @@ function ActivePuzzleBoard({
         )}
       </div>
 
-      <div className="space-y-3">
+      <aside className="space-y-3 lg:w-[340px]">
         {/* Progress & Dual Clocks Card */}
         <div className="card space-y-3 p-4">
           <div className="flex items-center justify-between text-xs text-chesscom-500">
@@ -444,7 +447,7 @@ function ActivePuzzleBoard({
             </div>
           )}
         </div>
-      </div>
+      </aside>
     </div>
   );
 }
