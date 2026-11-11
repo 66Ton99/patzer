@@ -2,7 +2,7 @@
 // shuffle pieces, click Analyze, browse top-N candidate lines. Designed for
 // the "what does the engine think about this?" moment after a game.
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
@@ -11,6 +11,7 @@ import {
   Microscope, RotateCcw, FlipVertical2, Wand2, Loader2, Swords,
 } from 'lucide-react';
 import ChessBoard from '../components/ChessBoard';
+import EvalBar from '../components/EvalBar';
 import ThreatPanel from '../components/ThreatPanel';
 import ExplorerPanel from '../components/ExplorerPanel';
 import { api } from '../api';
@@ -157,12 +158,50 @@ export default function Lab() {
   }
 
   const result = analyze.data;
+
+  // Cache analyses by FEN so navigating moves or replaying history doesn't lose analysis
+  const [analysisCache, setAnalysisCache] = useState<Record<string, AnalyzeResponse>>({});
+
+  useEffect(() => {
+    if (result && result.fen) {
+      setAnalysisCache((prev) => ({ ...prev, [result.fen]: result }));
+    }
+  }, [result]);
+
+  const currentAnalysis = (result && result.fen === fen) ? result : (analysisCache[fen] ?? null);
+  const isCheckmate = chessRef.current.isCheckmate();
+  const isDraw = chessRef.current.isDraw();
+  const topCandidate = currentAnalysis?.lines?.[0] ?? null;
+
+  const { evalCp, evalMate } = useMemo(() => {
+    if (isCheckmate) {
+      return {
+        evalCp: turn === 'white' ? -10000 : 10000,
+        evalMate: turn === 'white' ? -1 : 1,
+      };
+    }
+    if (isDraw) {
+      return { evalCp: 0, evalMate: null };
+    }
+    if (!topCandidate) {
+      return { evalCp: null, evalMate: null };
+    }
+    const mate = topCandidate.mate;
+    const cp = topCandidate.cp;
+    return {
+      evalCp: cp != null
+        ? (turn === 'white' ? cp : -cp)
+        : (mate != null ? (mate > 0 ? (turn === 'white' ? 10000 : -10000) : (turn === 'white' ? -10000 : 10000)) : null),
+      evalMate: mate != null ? (turn === 'white' ? mate : -mate) : null,
+    };
+  }, [isCheckmate, isDraw, topCandidate, turn]);
+
   const arrows = useMemo(() => {
-    if (!result || result.lines.length === 0) return [];
-    const best = result.lines[0];
+    if (!currentAnalysis || currentAnalysis.lines.length === 0) return [];
+    const best = currentAnalysis.lines[0];
     if (!best) return [];
     return [{ orig: best.uci.slice(0, 2), dest: best.uci.slice(2, 4), brush: 'paleBlue' as const }];
-  }, [result]);
+  }, [currentAnalysis]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
@@ -186,17 +225,26 @@ export default function Lab() {
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         {/* Board pane */}
         <section className="space-y-3">
-          <div className={`mx-auto w-full max-w-[640px] board-theme-${user?.profile.board_theme ?? 'green'}`}>
-            <ChessBoard
-              key={tick === 0 ? 'init' : 'live'}
-              fen={fen}
+          <div className="mx-auto flex w-full max-w-[640px] items-stretch justify-center gap-2">
+            <EvalBar
+              cp={evalCp}
+              mate={evalMate}
               orientation={orientation}
-              turnColor={turn}
-              movable
-              onMove={onMove}
-              arrows={arrows as never}
-              resetKey={tick}
             />
+            <div
+              className={`relative aspect-square w-full min-w-0 board-theme-${user?.profile.board_theme ?? 'green'}`}
+            >
+              <ChessBoard
+                key={tick === 0 ? 'init' : 'live'}
+                fen={fen}
+                orientation={orientation}
+                turnColor={turn}
+                movable
+                onMove={onMove}
+                arrows={arrows as never}
+                resetKey={tick}
+              />
+            </div>
           </div>
 
           <div className="card space-y-2 p-3">
@@ -278,13 +326,13 @@ export default function Lab() {
               <Loader2 className="h-4 w-4 animate-spin" />
               {t('lab.crunching', { defaultValue: 'Crunching positions…' })}
             </div>
-          ) : result && result.lines.length > 0 ? (
+          ) : currentAnalysis && currentAnalysis.lines.length > 0 ? (
             <div className="card divide-y divide-chesscom-100 dark:divide-chesscom-700">
-              {result.lines.map((line, i) => (
+              {currentAnalysis.lines.map((line, i) => (
                 <LineRow key={i} line={line} rank={i + 1} onPlay={playLineMove} />
               ))}
               <div className="px-3 py-1.5 text-right text-[11px] text-chesscom-400">
-                {t('lab.depthLabel', { defaultValue: 'depth' })} {result.depth}
+                {t('lab.depthLabel', { defaultValue: 'depth' })} {currentAnalysis.depth}
               </div>
             </div>
           ) : analyze.isError ? (
@@ -299,12 +347,7 @@ export default function Lab() {
 
           <ThreatPanel
             fen={fen}
-            currentCpWhite={(() => {
-              const top = analyze.data?.lines?.[0];
-              if (!top || analyze.data?.fen !== fen) return 0;
-              const cp = top.mate != null ? (top.mate > 0 ? 10000 : -10000) : (top.cp ?? 0);
-              return turn === 'white' ? cp : -cp;
-            })()}
+            currentCpWhite={evalCp ?? 0}
           />
 
           <ExplorerPanel fen={fen} />
