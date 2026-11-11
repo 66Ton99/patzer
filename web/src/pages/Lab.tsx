@@ -225,14 +225,14 @@ export default function Lab() {
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         {/* Board pane */}
         <section className="space-y-3">
-          <div className="mx-auto flex w-full max-w-[640px] items-stretch justify-center gap-2">
+          <div className="mx-auto flex w-full max-w-[calc(640px+26px)] items-stretch justify-center gap-2">
             <EvalBar
               cp={evalCp}
               mate={evalMate}
               orientation={orientation}
             />
             <div
-              className={`relative aspect-square w-full min-w-0 board-theme-${user?.profile.board_theme ?? 'green'}`}
+              className={`relative aspect-square w-full max-w-[640px] min-w-0 board-theme-${user?.profile.board_theme ?? 'green'}`}
             >
               <ChessBoard
                 key={tick === 0 ? 'init' : 'live'}
