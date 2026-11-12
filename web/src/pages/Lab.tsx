@@ -172,6 +172,9 @@ export default function Lab() {
     if (moves) {
       for (const m of moves) {
         if (m.fen_after && (m.eval_after_cp != null || m.mate_after != null)) {
+          const stm = m.fen_after.split(' ')[1];
+          const lineCp = m.eval_after_cp != null ? (stm === 'w' ? m.eval_after_cp : -m.eval_after_cp) : null;
+          const lineMate = m.mate_after != null ? (stm === 'w' ? m.mate_after : -m.mate_after) : null;
           cache[m.fen_after] = {
             fen: m.fen_after,
             depth: state?.analysis?.depth || 16,
@@ -179,8 +182,8 @@ export default function Lab() {
               uci: m.best_move_uci ?? '',
               san: m.best_move_san,
               pv_san: m.best_pv ?? [m.best_move_san],
-              cp: m.eval_after_cp,
-              mate: m.mate_after ?? null,
+              cp: lineCp,
+              mate: lineMate,
               multipv: 1,
             }] : [],
           };
@@ -192,14 +195,14 @@ export default function Lab() {
 
   const [analysisCache, setAnalysisCache] = useState<Record<string, AnalyzeResponse>>(initialCache);
 
-  // Auto-analyze starting from the target position when game is transferred
+  // Auto-analyze starting from the target position when game is transferred (only if not already analyzed)
   const autoAnalyzedRef = useRef(false);
   useEffect(() => {
-    if (state?.pgn && !autoAnalyzedRef.current) {
+    if (state?.pgn && !state?.analysis && !autoAnalyzedRef.current) {
       autoAnalyzedRef.current = true;
       analyze.mutate();
     }
-  }, [state?.pgn]);
+  }, [state?.pgn, state?.analysis]);
 
   // Direct URL deep-link fallback: fetch game by id if not provided via location.state
   const gameLoadedRef = useRef(false);
@@ -261,6 +264,9 @@ export default function Lab() {
             const cacheEntries: Record<string, AnalyzeResponse> = {};
             for (const m of moves) {
               if (m.fen_after && (m.eval_after_cp != null || m.mate_after != null)) {
+                const stm = m.fen_after.split(' ')[1];
+                const lineCp = m.eval_after_cp != null ? (stm === 'w' ? m.eval_after_cp : -m.eval_after_cp) : null;
+                const lineMate = m.mate_after != null ? (stm === 'w' ? m.mate_after : -m.mate_after) : null;
                 cacheEntries[m.fen_after] = {
                   fen: m.fen_after,
                   depth: a.depth || 16,
@@ -268,8 +274,8 @@ export default function Lab() {
                     uci: m.best_move_uci ?? '',
                     san: m.best_move_san,
                     pv_san: m.best_pv ?? [m.best_move_san],
-                    cp: m.eval_after_cp,
-                    mate: m.mate_after ?? null,
+                    cp: lineCp,
+                    mate: lineMate,
                     multipv: 1,
                   }] : [],
                 };
@@ -281,7 +287,9 @@ export default function Lab() {
           }
         }
         bump();
-        analyze.mutate();
+        if (!data.analysis?.moves_json) {
+          analyze.mutate();
+        }
       })
       .catch(() => {
         // ignore fetch error
@@ -499,6 +507,16 @@ export default function Lab() {
   const isDraw = chessRef.current.isDraw();
   const topCandidate = currentAnalysis?.lines?.[0] ?? null;
 
+  // Active move & board indicators matching /review
+  const currentHistoryEntry = historyIndex > 0 ? history[historyIndex - 1] : null;
+  const lastMove: [Key, Key] | undefined = currentHistoryEntry
+    ? [currentHistoryEntry.uci.slice(0, 2) as Key, currentHistoryEntry.uci.slice(2, 4) as Key]
+    : undefined;
+  const currentAnalyzedMove = historyIndex > 0
+    ? analysis?.moves.find((m) => m.ply === historyIndex)
+    : undefined;
+  const currentDestSquare = currentHistoryEntry ? currentHistoryEntry.uci.slice(2, 4) : undefined;
+
   const { evalCp, evalMate } = useMemo(() => {
     if (isCheckmate) {
       return {
@@ -508,6 +526,19 @@ export default function Lab() {
     }
     if (isDraw) {
       return { evalCp: 0, evalMate: null };
+    }
+    // If we're stepping through an analyzed game, use the authoritative review eval:
+    if (historyIndex > 0 && currentAnalyzedMove) {
+      return {
+        evalCp: currentAnalyzedMove.eval_after_cp,
+        evalMate: currentAnalyzedMove.mate_after ?? null,
+      };
+    }
+    if (historyIndex === 0 && analysis?.moves?.[0]?.eval_before_cp != null) {
+      return {
+        evalCp: analysis.moves[0].eval_before_cp,
+        evalMate: analysis.moves[0].mate_before ?? null,
+      };
     }
     if (!topCandidate) {
       return { evalCp: null, evalMate: null };
@@ -520,7 +551,7 @@ export default function Lab() {
         : (mate != null ? (mate > 0 ? (turn === 'white' ? 10000 : -10000) : (turn === 'white' ? -10000 : 10000)) : null),
       evalMate: mate != null ? (turn === 'white' ? mate : -mate) : null,
     };
-  }, [isCheckmate, isDraw, topCandidate, turn]);
+  }, [isCheckmate, isDraw, historyIndex, currentAnalyzedMove, analysis, topCandidate, turn]);
 
   const arrows = useMemo(() => {
     if (!currentAnalysis || currentAnalysis.lines.length === 0) return [];
@@ -528,14 +559,6 @@ export default function Lab() {
     if (!best) return [];
     return [{ orig: best.uci.slice(0, 2), dest: best.uci.slice(2, 4), brush: 'paleBlue' as const }];
   }, [currentAnalysis]);
-
-  // Active move & board indicators matching /review
-  const currentHistoryEntry = historyIndex > 0 ? history[historyIndex - 1] : null;
-  const lastMove: [Key, Key] | undefined = currentHistoryEntry
-    ? [currentHistoryEntry.uci.slice(0, 2) as Key, currentHistoryEntry.uci.slice(2, 4) as Key]
-    : undefined;
-  const currentAnalyzedMove = analysis?.moves.find((m) => m.ply === historyIndex);
-  const currentDestSquare = currentHistoryEntry ? currentHistoryEntry.uci.slice(2, 4) : undefined;
 
   // MoveList items
   const movesForList = useMemo(() => {

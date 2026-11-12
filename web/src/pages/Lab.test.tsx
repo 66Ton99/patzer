@@ -445,5 +445,94 @@ describe('Lab position analysis bar (EvalBar)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'e4' }));
     expect(screen.getByText('1 / 4')).toBeTruthy();
   });
+
+  it('preserves stable White-perspective evaluation and mate on EvalBar when stepping through moves', async () => {
+    const mockAnalysis = {
+      depth: 16,
+      accuracy_white: 75,
+      accuracy_black: 80,
+      estimated_elo_white: null,
+      estimated_elo_black: null,
+      performance_white: null,
+      performance_black: null,
+      opening_eco: null,
+      opening_name: null,
+      key_moments: [],
+      moves: [
+        {
+          ply: 1,
+          san: 'e4',
+          uci: 'e2e4',
+          eval_after_cp: 20,
+          fen_after: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+          classification: 'book' as const,
+          centipawn_loss: 0,
+        },
+        {
+          ply: 2,
+          san: 'e5',
+          uci: 'e7e5',
+          eval_after_cp: 15,
+          fen_after: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2',
+          classification: 'book' as const,
+          centipawn_loss: 0,
+        },
+        {
+          ply: 3,
+          san: 'Qh5',
+          uci: 'd1h5',
+          eval_after_cp: -9910,
+          mate_after: -9, // Black mates White in 9
+          fen_after: 'rnbqkbnr/pppp1ppp/8/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2',
+          classification: 'blunder' as const,
+          centipawn_loss: 800,
+        },
+        {
+          ply: 4,
+          san: 'Nc6',
+          uci: 'b8c6',
+          eval_after_cp: -9910,
+          mate_after: -9, // Black still mates White in 9
+          fen_after: 'r1bqkbnr/pppp1ppp/2n5/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR w KQkq - 2 3',
+          classification: 'best' as const,
+          centipawn_loss: 0,
+        },
+      ],
+    };
+
+    renderLab({
+      pathname: '/lab',
+      state: {
+        pgn: '1. e4 e5 2. Qh5 Nc6',
+        ply: 3,
+        analysis: mockAnalysis,
+        userColor: 'black',
+      },
+    });
+
+    // At ply 3 (White played Qh5, Black is winning with mate in 9):
+    // EvalBar should show M9 for Black (and chip in dark styling)
+    expect(screen.getByText('M9')).toBeTruthy();
+
+    // Step forward to ply 4 (Black played Nc6):
+    const nextBtn = screen.getByRole('button', { name: 'Next' });
+    fireEvent.click(nextBtn);
+    expect(screen.getByText('4 / 4')).toBeTruthy();
+
+    // EvalBar should still show M9 for Black, NOT flip to White advantage!
+    expect(screen.getByText('M9')).toBeTruthy();
+
+    // Step back to ply 2:
+    const prevBtn = screen.getByRole('button', { name: 'Previous' });
+    fireEvent.click(prevBtn); // to ply 3
+    fireEvent.click(prevBtn); // to ply 2
+    expect(screen.getByText('2 / 4')).toBeTruthy();
+    expect(screen.getByText('+0.1')).toBeTruthy();
+
+    // Step back to ply 1:
+    fireEvent.click(prevBtn);
+    expect(screen.getByText('1 / 4')).toBeTruthy();
+    expect(screen.getByText('+0.2')).toBeTruthy();
+  });
 });
 

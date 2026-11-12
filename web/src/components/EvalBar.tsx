@@ -52,19 +52,15 @@ export default function EvalBar({ cp, mate, orientation = 'white', height }: Pro
   return (
     <div className="relative" style={wrapStyle}>
       <div
-        className={`relative flex h-full w-full ${flip ? 'flex-col-reverse' : 'flex-col'} overflow-hidden rounded-l-md border border-chesscom-300 bg-chesscom-200 shadow-soft dark:border-chesscom-700 ${isMate ? 'shadow-glow' : ''}`}
+        className={`relative flex h-full w-full ${flip ? 'flex-col-reverse' : 'flex-col'} overflow-hidden rounded-l-md border border-chesscom-300 bg-chesscom-200 shadow-soft dark:border-chesscom-700`}
       >
         <motion.div
-          className={`flex items-start justify-center text-[10px] font-semibold tabular-nums text-white/90 ${
-            isMate && !whiteAdvantage ? 'bg-bad' : 'bg-chesscom-900'
-          }`}
+          className="flex items-start justify-center text-[10px] font-semibold tabular-nums text-white/90 bg-chesscom-900"
           animate={{ height: `${blackPct}%` }}
           transition={{ type: 'tween', duration: 0.28, ease }}
         />
         <motion.div
-          className={`flex items-end justify-center text-[10px] font-semibold tabular-nums text-chesscom-900 ${
-            isMate && whiteAdvantage ? 'bg-warn' : 'bg-white'
-          }`}
+          className="flex items-end justify-center text-[10px] font-semibold tabular-nums text-chesscom-900 bg-white"
           animate={{ height: `${whitePct}%` }}
           transition={{ type: 'tween', duration: 0.28, ease }}
         />
@@ -82,8 +78,9 @@ export default function EvalBar({ cp, mate, orientation = 'white', height }: Pro
             : 'bg-chesscom-900 text-white ring-1 ring-chesscom-700'
         }`}
         style={{
-          [whiteAdvantage === !flip ? 'bottom' : 'top']: 4,
-        } as React.CSSProperties}
+          top: whiteAdvantage === !flip ? undefined : 4,
+          bottom: whiteAdvantage === !flip ? 4 : undefined,
+        }}
       >
         {label}
       </div>
