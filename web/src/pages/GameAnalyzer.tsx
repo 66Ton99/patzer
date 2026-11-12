@@ -501,6 +501,10 @@ export default function GameAnalyzer() {
                       coachConfigured={coachConfigured}
                       coachRequest={coachReq}
                       playFrom={playOn ?? undefined}
+                      gameId={gameId}
+                      pgn={data.game.pgn}
+                      gameTitle={`${data.game.white} vs ${data.game.black}`}
+                      analysisMoves={analysis?.moves}
                     />
                   )}
                   {tab === 'moves' && (

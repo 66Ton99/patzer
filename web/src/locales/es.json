@@ -627,7 +627,11 @@
     "moves": "Jugadas",
     "startPos": "Posición inicial",
     "playFromHere": "Jugar desde aquí contra Patzer",
-    "playFromHint": "Jugar desde aquí funciona con las blancas al turno, o justo después de una jugada que hiciste aquí en el Laboratorio."
+    "playFromHint": "Jugar desde aquí funciona con las blancas al turno, o justo después de una jugada que hiciste aquí en el Laboratorio.",
+    "analyzeGame": "Analizar toda la partida",
+    "analyzingGame": "Analizando partida…",
+    "stopAnalysis": "Detener",
+    "gameAnalysisDone": "Análisis de la partida completado"
   },
   "home": {
     "greeting": "¡Hola, {{name}}!",

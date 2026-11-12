@@ -9,6 +9,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Chess } from 'chess.js';
 import {
   Microscope, RotateCcw, FlipVertical2, Wand2, Loader2, Swords,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles,
 } from 'lucide-react';
 import ChessBoard from '../components/ChessBoard';
 import EvalBar from '../components/EvalBar';
@@ -17,6 +18,7 @@ import ExplorerPanel from '../components/ExplorerPanel';
 import { api } from '../api';
 import { useAuth } from '../state/auth';
 import { parseFromPosition, playFromPosition, playFromUrl } from '../lib/fromPosition';
+import type { AnalyzedMove } from '../types';
 
 function safeDecodeFen(raw: string): string {
   if (!raw) return '';
@@ -52,36 +54,95 @@ interface HistoryEntry {
   uci: string;       // the same move as UCI
 }
 
+interface LocationState {
+  pgn?: string;
+  gameId?: number;
+  ply?: number;
+  userColor?: 'white' | 'black' | null;
+  gameTitle?: string;
+  analysisMoves?: AnalyzedMove[];
+}
+
+function parseGamePgn(pgn: string): { startFen: string; history: HistoryEntry[] } {
+  try {
+    const chess = new Chess();
+    chess.loadPgn(pgn, { strict: false });
+    const hist = chess.history({ verbose: true });
+    const headers = chess.getHeaders();
+    const startFen = headers.SetUp === '1' && headers.FEN ? headers.FEN : new Chess().fen();
+    const replay = new Chess(startFen, { skipValidation: true });
+    const historyEntries: HistoryEntry[] = [];
+    for (const m of hist) {
+      replay.move({ from: m.from, to: m.to, promotion: m.promotion });
+      historyEntries.push({
+        fen: replay.fen(),
+        san: m.san,
+        uci: m.from + m.to + (m.promotion ?? ''),
+      });
+    }
+    return { startFen, history: historyEntries };
+  } catch {
+    return { startFen: new Chess().fen(), history: [] };
+  }
+}
+
 export default function Lab() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const location = useLocation();
+  const state = (location.state as LocationState | undefined) ?? undefined;
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const gameIdParam = searchParams.get('game');
+  const plyParam = searchParams.get('ply');
 
-  // Get the FEN from hash (#fen) or query (?fen=)
+  // If a game is passed via state, initialize immediately on mount
+  const initialGame = useMemo(() => {
+    if (!state?.pgn) return null;
+    const { startFen, history: entries } = parseGamePgn(state.pgn);
+    const targetPly = state.ply != null ? Math.max(0, Math.min(entries.length, state.ply)) : entries.length;
+    const targetFen = targetPly === 0 ? startFen : entries[targetPly - 1].fen;
+    return {
+      startFen,
+      history: entries,
+      targetPly,
+      targetFen,
+      userColor: state.userColor,
+      gameTitle: state.gameTitle,
+    };
+  }, []);
+
+  // Get the FEN from initial game, hash (#fen) or query (?fen=)
   const hash = location.hash ? location.hash.slice(1) : (typeof window !== 'undefined' ? window.location.hash.slice(1) : '');
-  const searchFen = new URLSearchParams(location.search).get('fen');
-  const initialFen = safeDecodeFen(hash || searchFen || '');
+  const searchFen = searchParams.get('fen');
+  const initialFen = initialGame ? initialGame.targetFen : safeDecodeFen(hash || searchFen || '');
 
   // instantiate a proper chess object to be referenced later, we skip validation for preloaded FENs
   // as this often used to just manipulate a position, anarchy-chess style.
-  const chess = initialFen ? new Chess(initialFen, {skipValidation: true}) : new Chess();
+  const chess = initialFen ? new Chess(initialFen, { skipValidation: true }) : new Chess();
 
   // Authoritative game state lives in a ref to avoid stale closures.
   const chessRef = useRef<Chess>(chess);
   // Where the move list starts: the FEN you set, or the normal start.
-  const startFenRef = useRef(chess.fen());
+  const startFenRef = useRef(initialGame ? initialGame.startFen : chess.fen());
 
   // Counter forces re-renders / ChessBoard re-sync since chess.js mutates.
   const [tick, setTick] = useState(0);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(0); // 0 = start; N = after Nth move
+  const [history, setHistory] = useState<HistoryEntry[]>(initialGame ? initialGame.history : []);
+  const [historyIndex, setHistoryIndex] = useState(initialGame ? initialGame.targetPly : 0); // 0 = start; N = after Nth move
 
-  const [orientation, setOrientation] = useState<'white' | 'black'>('white');
+  const [orientation, setOrientation] = useState<'white' | 'black'>(
+    initialGame?.userColor === 'black' ? 'black' : 'white'
+  );
+  const [gameTitle, setGameTitle] = useState<string | null>(initialGame?.gameTitle ?? null);
   const [fenInput, setFenInput] = useState(initialFen);
   const [fenError, setFenError] = useState<string | null>(null);
 
   const [depth, setDepth] = useState(12);
   const [lines, setLines] = useState(5);
+
+  const [isAnalyzingGame, setIsAnalyzingGame] = useState(false);
+  const [gameAnalysisProgress, setGameAnalysisProgress] = useState<{ current: number; total: number; ply: number } | null>(null);
+  const abortAnalysisRef = useRef(false);
 
   const fen = chessRef.current.fen();
   const turn = chessRef.current.turn() === 'w' ? 'white' : 'black';
@@ -103,10 +164,102 @@ export default function Lab() {
 
   function bump() { setTick((k) => k + 1); }
 
+  // Initial cache from pre-computed analysis if available
+  const initialCache = useMemo(() => {
+    const cache: Record<string, AnalyzeResponse> = {};
+    if (state?.analysisMoves) {
+      for (const m of state.analysisMoves) {
+        if (m.fen_after && (m.eval_after_cp != null || m.mate_after != null)) {
+          cache[m.fen_after] = {
+            fen: m.fen_after,
+            depth: 16,
+            lines: m.best_move_san ? [{
+              uci: m.best_move_uci ?? '',
+              san: m.best_move_san,
+              pv_san: m.best_pv ?? [m.best_move_san],
+              cp: m.eval_after_cp,
+              mate: m.mate_after ?? null,
+              multipv: 1,
+            }] : [],
+          };
+        }
+      }
+    }
+    return cache;
+  }, []);
+
+  const [analysisCache, setAnalysisCache] = useState<Record<string, AnalyzeResponse>>(initialCache);
+
+  // Auto-analyze starting from the target position when game is transferred
+  const autoAnalyzedRef = useRef(false);
+  useEffect(() => {
+    if (state?.pgn && !autoAnalyzedRef.current) {
+      autoAnalyzedRef.current = true;
+      analyze.mutate();
+    }
+  }, [state?.pgn]);
+
+  // Direct URL deep-link fallback: fetch game by id if not provided via location.state
+  const gameLoadedRef = useRef(false);
+  useEffect(() => {
+    if (state?.pgn || !gameIdParam || gameLoadedRef.current) return;
+    gameLoadedRef.current = true;
+    api.get<{
+      game: { id: number; pgn: string; white: string; black: string; user_color: 'white' | 'black' | null };
+      analysis?: { depth: number; moves_json: string } | null;
+    }>(`/api/games/${gameIdParam}`)
+      .then((data) => {
+        if (!data?.game?.pgn) return;
+        const { startFen, history: entries } = parseGamePgn(data.game.pgn);
+        const target = plyParam ? Number(plyParam) : entries.length;
+        const clamped = Math.max(0, Math.min(entries.length, Number.isFinite(target) ? target : entries.length));
+        const targetFen = clamped === 0 ? startFen : entries[clamped - 1].fen;
+
+        startFenRef.current = startFen;
+        chessRef.current = new Chess(targetFen, { skipValidation: true });
+        setHistory(entries);
+        setHistoryIndex(clamped);
+        setFenInput(targetFen);
+        setGameTitle(`${data.game.white} vs ${data.game.black}`);
+        if (data.game.user_color) setOrientation(data.game.user_color);
+
+        if (data.analysis?.moves_json) {
+          try {
+            const moves: AnalyzedMove[] = JSON.parse(data.analysis.moves_json);
+            const cacheEntries: Record<string, AnalyzeResponse> = {};
+            for (const m of moves) {
+              if (m.fen_after && (m.eval_after_cp != null || m.mate_after != null)) {
+                cacheEntries[m.fen_after] = {
+                  fen: m.fen_after,
+                  depth: data.analysis.depth || 16,
+                  lines: m.best_move_san ? [{
+                    uci: m.best_move_uci ?? '',
+                    san: m.best_move_san,
+                    pv_san: m.best_pv ?? [m.best_move_san],
+                    cp: m.eval_after_cp,
+                    mate: m.mate_after ?? null,
+                    multipv: 1,
+                  }] : [],
+                };
+              }
+            }
+            setAnalysisCache((prev) => ({ ...cacheEntries, ...prev }));
+          } catch {
+            // ignore JSON error
+          }
+        }
+        bump();
+        analyze.mutate();
+      })
+      .catch(() => {
+        // ignore fetch error
+      });
+  }, [gameIdParam, plyParam, state?.pgn]);
+
   useEffect(() => {
     const raw = location.hash ? location.hash.slice(1) : (typeof window !== 'undefined' ? window.location.hash.slice(1) : '');
     const decoded = safeDecodeFen(raw || new URLSearchParams(location.search).get('fen') || '');
-    if (decoded && decoded !== startFenRef.current) {
+    if (decoded && decoded !== startFenRef.current && !state?.pgn && !gameIdParam) {
       try {
         const next = new Chess(decoded, { skipValidation: true });
         chessRef.current = next;
@@ -120,7 +273,7 @@ export default function Lab() {
         // ignore invalid
       }
     }
-  }, [location.hash, location.search]);
+  }, [location.hash, location.search, state?.pgn, gameIdParam]);
 
   function onMove(uci: string) {
     const from = uci.slice(0, 2);
@@ -135,6 +288,7 @@ export default function Lab() {
         return [...trimmed, { fen: chessRef.current.fen(), san: move.san, uci: move.from + move.to + (move.promotion ?? '') }];
       });
       setHistoryIndex((i) => i + 1);
+      setFenInput(chessRef.current.fen());
       bump();
     } catch {
       // illegal — chessground will reject via legalDests; ignore
@@ -147,6 +301,7 @@ export default function Lab() {
     startFenRef.current = chessRef.current.fen();
     setHistory([]);
     setHistoryIndex(0);
+    setGameTitle(null);
     analyze.reset();
     bump();
   }
@@ -164,6 +319,7 @@ export default function Lab() {
       startFenRef.current = test.fen();
       setHistory([]);
       setHistoryIndex(0);
+      setGameTitle(null);
       analyze.reset();
       setFenError(null);
       bump();
@@ -173,16 +329,12 @@ export default function Lab() {
   }
 
   function gotoPly(index: number) {
-    // Reconstruct chess at the given history position by replaying.
-    const replay = new Chess(startFenRef.current, { skipValidation: true });
-    for (let i = 0; i < index; i++) {
-      const entry = history[i];
-      if (!entry) break;
-      // Use the FEN directly for simplicity & correctness with promotions.
-      replay.load(entry.fen);
-    }
+    const clamped = Math.max(0, Math.min(history.length, index));
+    const targetFen = clamped === 0 ? startFenRef.current : history[clamped - 1].fen;
+    const replay = new Chess(targetFen, { skipValidation: true });
     chessRef.current = replay;
-    setHistoryIndex(index);
+    setHistoryIndex(clamped);
+    setFenInput(targetFen);
     analyze.reset();
     bump();
   }
@@ -191,10 +343,115 @@ export default function Lab() {
     onMove(uci);
   }
 
-  const result = analyze.data;
+  async function startAnalyzeGame() {
+    if (history.length === 0 || isAnalyzingGame) return;
+    setIsAnalyzingGame(true);
+    abortAnalysisRef.current = false;
 
-  // Cache analyses by FEN so navigating moves or replaying history doesn't lose analysis
-  const [analysisCache, setAnalysisCache] = useState<Record<string, AnalyzeResponse>>({});
+    // Collect all positions in game: 0 = start, 1..N = after each move
+    const positionsList: { index: number; fen: string }[] = [
+      { index: 0, fen: startFenRef.current },
+      ...history.map((h, i) => ({ index: i + 1, fen: h.fen })),
+    ];
+
+    // Begin from current position (historyIndex), then forward to end, then backward:
+    const startIdx = historyIndex;
+    const orderIndices: number[] = [startIdx];
+    for (let i = startIdx + 1; i < positionsList.length; i++) {
+      orderIndices.push(i);
+    }
+    for (let i = startIdx - 1; i >= 0; i--) {
+      orderIndices.push(i);
+    }
+
+    const totalCount = orderIndices.length;
+    let processedCount = 0;
+    setGameAnalysisProgress({ current: 0, total: totalCount, ply: startIdx });
+
+    try {
+      for (const idx of orderIndices) {
+        if (abortAnalysisRef.current) break;
+
+        const target = positionsList[idx];
+        if (!target) continue;
+
+        setGameAnalysisProgress({ current: processedCount + 1, total: totalCount, ply: idx });
+
+        // Skip if already in cache with >= depth and lines
+        const existing = analysisCache[target.fen];
+        if (existing && existing.depth >= depth && existing.lines.length >= lines) {
+          processedCount++;
+          continue;
+        }
+
+        let attempts = 0;
+        let success = false;
+        while (attempts < 3 && !success && !abortAnalysisRef.current) {
+          try {
+            attempts++;
+            const res = await api.post<AnalyzeResponse>('/api/analyze/position', {
+              fen: target.fen,
+              depth,
+              lines,
+            });
+            setAnalysisCache((prev) => ({ ...prev, [res.fen]: res }));
+            success = true;
+          } catch (err: unknown) {
+            const maybeStatus = (err as { status?: number })?.status;
+            const maybeMsg = (err as { message?: string })?.message;
+            if (maybeStatus === 429 || (maybeMsg && maybeMsg.includes('already_analyzing'))) {
+              await new Promise((r) => setTimeout(r, 250));
+            } else {
+              break;
+            }
+          }
+        }
+        processedCount++;
+      }
+    } finally {
+      setIsAnalyzingGame(false);
+      setGameAnalysisProgress(null);
+    }
+  }
+
+  function stopAnalyzeGame() {
+    abortAnalysisRef.current = true;
+    setIsAnalyzingGame(false);
+    setGameAnalysisProgress(null);
+  }
+
+  useEffect(() => {
+    return () => {
+      abortAnalysisRef.current = true;
+    };
+  }, []);
+
+  // Keyboard navigation through moves
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (history.length === 0) return;
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        gotoPly(historyIndex - 1);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        gotoPly(historyIndex + 1);
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        gotoPly(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        gotoPly(history.length);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [history.length, historyIndex, history]);
+
+  const result = analyze.data;
 
   useEffect(() => {
     if (result && result.fen) {
@@ -246,7 +503,7 @@ export default function Lab() {
             {t('lab.title', { defaultValue: 'Lab' })}
           </h1>
           <p className="page-sub">
-            {t('lab.subtitle', { defaultValue: 'A sandbox board with Stockfish on tap.' })}
+            {gameTitle ? gameTitle : t('lab.subtitle', { defaultValue: 'A sandbox board with Stockfish on tap.' })}
           </p>
         </div>
         <div className="text-xs text-chesscom-500">
@@ -282,6 +539,53 @@ export default function Lab() {
           </div>
 
           <div className="card space-y-2 p-3">
+            {/* Game Navigation Controls */}
+            {history.length > 0 && (
+              <div className="flex items-center justify-between gap-1 rounded-lg border border-chesscom-200 bg-chesscom-50/50 p-1.5 dark:border-chesscom-700 dark:bg-chesscom-900/40">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => gotoPly(0)}
+                    disabled={historyIndex === 0}
+                    className="btn-ghost h-8 w-8 p-0"
+                    title={t('review.first', { defaultValue: 'First' })}
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => gotoPly(historyIndex - 1)}
+                    disabled={historyIndex === 0}
+                    className="btn-ghost h-8 w-8 p-0"
+                    title={t('review.prev', { defaultValue: 'Previous' })}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="text-center font-mono text-xs font-semibold tabular-nums text-chesscom-800 dark:text-chesscom-100">
+                  {historyIndex === 0
+                    ? t('lab.startPos', { defaultValue: 'Start' })
+                    : `${historyIndex} / ${history.length}`}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => gotoPly(historyIndex + 1)}
+                    disabled={historyIndex >= history.length}
+                    className="btn-ghost h-8 w-8 p-0"
+                    title={t('review.next', { defaultValue: 'Next' })}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => gotoPly(history.length)}
+                    disabled={historyIndex >= history.length}
+                    className="btn-ghost h-8 w-8 p-0"
+                    title={t('review.last', { defaultValue: 'Last' })}
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <input
                 value={fenInput}
@@ -308,10 +612,10 @@ export default function Lab() {
                 {fen}
               </div>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <button
                 onClick={() => analyze.mutate()}
-                disabled={analyze.isPending}
+                disabled={analyze.isPending || isAnalyzingGame}
                 className="btn-primary flex-1 text-sm"
               >
                 {analyze.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
@@ -319,6 +623,36 @@ export default function Lab() {
                   ? t('lab.analyzing', { defaultValue: 'Analyzing…' })
                   : t('lab.analyze', { defaultValue: 'Analyze' })}
               </button>
+              {history.length > 0 && (
+                isAnalyzingGame ? (
+                  <div className="flex flex-1 items-center justify-between gap-2 rounded-md bg-chesscom-100 px-3 py-1.5 dark:bg-chesscom-800">
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-chesscom-700 dark:text-chesscom-200">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      {t('lab.analyzingGame', { defaultValue: 'Analyzing game…' })}
+                      {gameAnalysisProgress && (
+                        <span className="font-mono tabular-nums">
+                          ({gameAnalysisProgress.current}/{gameAnalysisProgress.total})
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      onClick={stopAnalyzeGame}
+                      className="text-xs font-semibold text-mistake hover:underline"
+                    >
+                      {t('lab.stopAnalysis', { defaultValue: 'Stop' })}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={startAnalyzeGame}
+                    disabled={analyze.isPending}
+                    className="btn-secondary flex-1 text-sm"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    {t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}
+                  </button>
+                )
+              )}
               {playFrom ? (
                 <Link to={playFromUrl(playFrom, orientation)} className="btn-secondary flex-1 text-sm">
                   <Swords className="h-4 w-4" /> {t('lab.playFromHere', { defaultValue: 'Play from here against Patzer' })}
@@ -337,16 +671,29 @@ export default function Lab() {
               <h2 className="text-xs font-semibold uppercase tracking-wider text-chesscom-500">
                 {t('lab.engine', { defaultValue: 'Engine analysis' })}
               </h2>
-              <button
-                onClick={() => analyze.mutate()}
-                disabled={analyze.isPending}
-                className="btn-primary text-sm"
-              >
-                {analyze.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                {analyze.isPending
-                  ? t('lab.analyzing', { defaultValue: 'Analyzing…' })
-                  : t('lab.analyze', { defaultValue: 'Analyze' })}
-              </button>
+              <div className="flex items-center gap-2">
+                {history.length > 0 && !isAnalyzingGame && (
+                  <button
+                    onClick={startAnalyzeGame}
+                    disabled={analyze.isPending}
+                    className="btn-ghost text-xs"
+                    title={t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">{t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => analyze.mutate()}
+                  disabled={analyze.isPending || isAnalyzingGame}
+                  className="btn-primary text-sm"
+                >
+                  {analyze.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                  {analyze.isPending
+                    ? t('lab.analyzing', { defaultValue: 'Analyzing…' })
+                    : t('lab.analyze', { defaultValue: 'Analyze' })}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -400,39 +747,71 @@ export default function Lab() {
 
           {history.length > 0 && (
             <div className="card overflow-hidden">
-              <div className="flex items-center gap-2 border-b border-chesscom-200 px-3 py-2 dark:border-chesscom-700">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-chesscom-500">
-                  {t('lab.moves', { defaultValue: 'Moves' })}
-                </h2>
-                <span className="text-[11px] text-chesscom-400">{history.length}</span>
+              <div className="flex items-center justify-between border-b border-chesscom-200 px-3 py-2 dark:border-chesscom-700">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-chesscom-500">
+                    {t('lab.moves', { defaultValue: 'Moves' })}
+                  </h2>
+                  <span className="text-[11px] text-chesscom-400">{history.length}</span>
+                </div>
+                {isAnalyzingGame ? (
+                  <button
+                    onClick={stopAnalyzeGame}
+                    className="text-xs font-medium text-mistake hover:underline"
+                  >
+                    {t('lab.stopAnalysis', { defaultValue: 'Stop' })}
+                  </button>
+                ) : (
+                  <button
+                    onClick={startAnalyzeGame}
+                    disabled={analyze.isPending}
+                    className="flex items-center gap-1 text-[11px] text-board-dark hover:underline"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    {t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}
+                  </button>
+                )}
               </div>
               <div className="max-h-60 overflow-y-auto p-2">
                 <button
                   onClick={() => gotoPly(0)}
-                  className={`w-full rounded px-2 py-1 text-left text-xs font-mono tabular-nums ${
+                  aria-label={t('lab.startPos', { defaultValue: 'Start' })}
+                  className={`flex items-center justify-between w-full rounded px-2 py-1 text-left text-xs font-mono tabular-nums ${
                     historyIndex === 0
-                      ? 'bg-gold-500/15 text-chesscom-900 dark:text-chesscom-100'
+                      ? 'bg-gold-500/15 text-chesscom-900 dark:text-chesscom-100 font-semibold'
                       : 'text-chesscom-500 hover:bg-chesscom-100/60 dark:hover:bg-chesscom-700/40'
                   }`}
                 >
-                  {t('lab.startPos', { defaultValue: 'Start' })}
+                  <span>{t('lab.startPos', { defaultValue: 'Start' })}</span>
+                  {analysisCache[startFenRef.current]?.lines?.[0] && (
+                    <span className="text-[11px] text-chesscom-400 font-normal">
+                      {formatEval(analysisCache[startFenRef.current].lines[0].cp, analysisCache[startFenRef.current].lines[0].mate)}
+                    </span>
+                  )}
                 </button>
                 {history.map((h, i) => {
                   const ply = i + 1;
                   const moveNum = Math.ceil(ply / 2);
                   const label = ply % 2 === 1 ? `${moveNum}. ${h.san}` : `${moveNum}… ${h.san}`;
                   const isActive = historyIndex === ply;
+                  const cachedEval = analysisCache[h.fen];
+                  const line = cachedEval?.lines?.[0];
+                  const evalStr = line ? formatEval(line.cp, line.mate) : null;
                   return (
                     <button
                       key={i}
                       onClick={() => gotoPly(ply)}
-                      className={`w-full rounded px-2 py-1 text-left text-xs font-mono tabular-nums ${
+                      aria-label={label}
+                      className={`flex items-center justify-between w-full rounded px-2 py-1 text-left text-xs font-mono tabular-nums ${
                         isActive
-                          ? 'bg-gold-500/15 text-chesscom-900 dark:text-chesscom-100'
+                          ? 'bg-gold-500/15 text-chesscom-900 dark:text-chesscom-100 font-semibold'
                           : 'text-chesscom-600 hover:bg-chesscom-100/60 dark:text-chesscom-200 dark:hover:bg-chesscom-700/40'
                       }`}
                     >
-                      {label}
+                      <span>{label}</span>
+                      {evalStr && (
+                        <span className="text-[11px] text-chesscom-400 font-normal">{evalStr}</span>
+                      )}
                     </button>
                   );
                 })}

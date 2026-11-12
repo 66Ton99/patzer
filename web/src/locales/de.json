@@ -1086,7 +1086,11 @@
     "moves": "Züge",
     "startPos": "Start",
     "playFromHere": "Ab hier gegen Patzer spielen",
-    "playFromHint": "Ab hier spielen geht, wenn Weiß am Zug ist – oder direkt nach einem Zug, den du hier im Lab gemacht hast."
+    "playFromHint": "Ab hier spielen geht, wenn Weiß am Zug ist – oder direkt nach einem Zug, den du hier im Lab gemacht hast.",
+    "analyzeGame": "Ganze Partie analysieren",
+    "analyzingGame": "Partie wird analysiert…",
+    "stopAnalysis": "Stopp",
+    "gameAnalysisDone": "Partieanalyse abgeschlossen"
   },
   "home": {
     "greeting": "Hallo, {{name}}!",

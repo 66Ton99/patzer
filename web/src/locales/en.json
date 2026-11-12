@@ -1086,7 +1086,11 @@
     "moves": "Moves",
     "startPos": "Start",
     "playFromHere": "Play from here against Patzer",
-    "playFromHint": "Playing from here needs White to move — or a move you made here in the Lab just before."
+    "playFromHint": "Playing from here needs White to move — or a move you made here in the Lab just before.",
+    "analyzeGame": "Analyze whole game",
+    "analyzingGame": "Analyzing game…",
+    "stopAnalysis": "Stop",
+    "gameAnalysisDone": "Game analysis complete"
   },
   "home": {
     "greeting": "Hi, {{name}}!",

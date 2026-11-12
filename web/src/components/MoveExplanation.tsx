@@ -10,7 +10,7 @@ import { Link } from 'react-router-dom';
 import { Swords, Microscope } from 'lucide-react';
 import { CLASS_STYLE, GLYPH_SVG } from '../lib/classification';
 import CoachPanel from './CoachPanel';
-import { labUrl } from '../lib/fromPosition';
+import { labUrl, labGameUrl } from '../lib/fromPosition';
 import type { AnalyzedMove } from '../types';
 
 /** Lichess win-chance curve (same as the server's cpToWinPct), 0..100 for White. */
@@ -39,9 +39,23 @@ interface Props {
   /** "Play from here" link for the position after this move (the one on the
    *  board): play on against Patzer. Absent once the game is over. */
   playFrom?: string;
+  gameId?: number;
+  pgn?: string;
+  gameTitle?: string;
+  analysisMoves?: AnalyzedMove[];
 }
 
-export default function MoveExplanation({ move, userColor, coachConfigured, coachRequest, playFrom }: Props) {
+export default function MoveExplanation({
+  move,
+  userColor,
+  coachConfigured,
+  coachRequest,
+  playFrom,
+  gameId,
+  pgn,
+  gameTitle,
+  analysisMoves,
+}: Props) {
   const { t } = useTranslation();
   const s = CLASS_STYLE[move.classification];
   const side = move.ply % 2 === 1 ? 'white' : 'black';
@@ -90,7 +104,18 @@ export default function MoveExplanation({ move, userColor, coachConfigured, coac
           <Link to={playFrom} className="btn-secondary w-full text-xs">
             <Swords className="h-3.5 w-3.5" /> {t('review.why.playFromHere')}
           </Link>
-          <Link to={labUrl(move.fen_after)} className="btn-secondary w-full text-xs">
+          <Link
+            to={labGameUrl({ gameId, ply: move.ply, fen: move.fen_after })}
+            state={{
+              pgn,
+              gameId,
+              ply: move.ply,
+              userColor,
+              gameTitle,
+              analysisMoves,
+            }}
+            className="btn-secondary w-full text-xs"
+          >
             <Microscope className="h-3.5 w-3.5" /> {t('review.why.analyze')}
           </Link>
         </div>

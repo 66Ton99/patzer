@@ -66,6 +66,28 @@ describe('MoveExplanation', () => {
     expect(analyzeLink.getAttribute('href')).toBe(`/lab#${encodeURI(dummyMove.fen_after)}`);
   });
 
+  it('renders Analyze link with full game query when gameId is provided', () => {
+    const playFromUrl = '/play?fen=test&moves=g1f3';
+    render(
+      <MemoryRouter>
+        <MoveExplanation
+          move={dummyMove}
+          userColor="white"
+          coachConfigured={false}
+          coachRequest={null}
+          playFrom={playFromUrl}
+          gameId={42}
+          pgn="1. e4 e5 2. Nf3"
+          gameTitle="Alice vs Bob"
+        />
+      </MemoryRouter>
+    );
+
+    const analyzeLink = screen.getByRole('link', { name: /Analyze/i });
+    expect(analyzeLink).toBeTruthy();
+    expect(analyzeLink.getAttribute('href')).toBe('/lab?game=42&ply=3');
+  });
+
   it('does not render playFrom or analyze links when playFrom is not set', () => {
     render(
       <MemoryRouter>

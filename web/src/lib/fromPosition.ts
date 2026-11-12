@@ -34,6 +34,19 @@ export function labUrl(fen: string): string {
   return `/lab#${encodeURI(fen)}`;
 }
 
+/** The Lab page link to analyze a game starting at a specific ply. */
+export function labGameUrl(opts: { gameId?: number; ply?: number; fen?: string }): string {
+  if (opts.gameId != null) {
+    const q = new URLSearchParams({ game: String(opts.gameId) });
+    if (opts.ply != null) q.set('ply', String(opts.ply));
+    return `/lab?${q.toString()}`;
+  }
+  if (opts.fen) {
+    return `/lab#${encodeURI(opts.fen)}`;
+  }
+  return '/lab';
+}
+
 /** Game Review's "play from here" (?fen=&moves=), checked the way the server
  *  checks it: a white-to-move position, then up to two moves already played,
  *  and a game that isn't over. `at` is the position the game starts at;
