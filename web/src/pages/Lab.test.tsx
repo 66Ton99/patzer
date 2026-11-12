@@ -535,15 +535,21 @@ describe('Lab position analysis bar (EvalBar)', () => {
     expect(screen.getByText('+0.2')).toBeTruthy();
   });
 
-  it('keeps "Analyze whole game" button visible and disabled when only a FEN is loaded', async () => {
+  it('renders "Analyze to the end" button when FEN is loaded and plays out best moves', async () => {
+    post.mockResolvedValueOnce({
+      fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3',
+      depth: 12,
+      lines: [{ uci: 'f1b5', san: 'Bb5', pv_san: ['Bb5', 'a6'], cp: 25, mate: null, multipv: 1 }],
+    });
+
     renderLab('/lab');
 
-    const analyzeGameBtn = screen.getByRole('button', { name: /Analyze whole game/i }) as HTMLButtonElement;
-    expect(analyzeGameBtn).toBeTruthy();
-    expect(analyzeGameBtn.disabled).toBe(true);
-    expect(analyzeGameBtn.title).toContain('No moves to analyze');
+    // Button "Analyze to the end" is present and enabled
+    const analyzeToEndBtn = screen.getByRole('button', { name: /Analyze to the end/i }) as HTMLButtonElement;
+    expect(analyzeToEndBtn).toBeTruthy();
+    expect(analyzeToEndBtn.disabled).toBe(false);
 
-    // Setting another FEN
+    // Setting a FEN
     const input = screen.getByPlaceholderText(/Paste a FEN or PGN/i);
     const setBtn = screen.getByRole('button', { name: 'Set' });
     fireEvent.change(input, {
@@ -551,12 +557,24 @@ describe('Lab position analysis bar (EvalBar)', () => {
     });
     fireEvent.click(setBtn);
 
-    // Button is still visible and disabled because history has 0 moves
-    expect(analyzeGameBtn.disabled).toBe(true);
-    expect(analyzeGameBtn.title).toContain('No moves to analyze');
+    // Still enabled
+    expect(analyzeToEndBtn.disabled).toBe(false);
+
+    // Click "Analyze to the end"
+    await act(async () => {
+      fireEvent.click(analyzeToEndBtn);
+    });
+
+    // Should call engine and play Bb5
+    expect(post).toHaveBeenCalledWith('/api/analyze/position', expect.objectContaining({
+      fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3',
+    }));
+
+    // History now contains the move Bb5
+    expect(screen.getByRole('button', { name: 'Bb5' })).toBeTruthy();
   });
 
-  it('supports pasting PGN into the input to load game moves and enables whole game analysis', async () => {
+  it('supports pasting PGN into the input to load game moves and enables both whole game and to the end analysis', async () => {
     renderLab('/lab');
 
     const input = screen.getByPlaceholderText(/Paste a FEN or PGN/i);
@@ -574,6 +592,9 @@ describe('Lab position analysis bar (EvalBar)', () => {
 
     const analyzeGameBtn = screen.getByRole('button', { name: /Analyze whole game/i }) as HTMLButtonElement;
     expect(analyzeGameBtn.disabled).toBe(false);
+
+    const toEndBtn = screen.getByRole('button', { name: /To the end/i }) as HTMLButtonElement;
+    expect(toEndBtn.disabled).toBe(false);
   });
 });
 

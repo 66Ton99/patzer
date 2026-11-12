@@ -1091,6 +1091,10 @@
     "playFromHint": "Ab hier spielen geht, wenn Weiß am Zug ist – oder direkt nach einem Zug, den du hier im Lab gemacht hast.",
     "analyzeGame": "Ganze Partie analysieren",
     "analyzingGame": "Partie wird analysiert…",
+    "analyzeToEnd": "Bis zum Ende analysieren",
+    "analyzeToEndHint": "Beste Züge mit Stockfish bis zum Schachmatt oder Remis weiterspielen",
+    "continueToEnd": "Bis zum Ende",
+    "gameOver": "Partie beendet",
     "stopAnalysis": "Stopp",
     "gameAnalysisDone": "Partieanalyse abgeschlossen"
   },

@@ -10,7 +10,7 @@ import { Chess } from 'chess.js';
 import type { Key } from 'chessground/types';
 import {
   Microscope, RotateCcw, FlipVertical2, Wand2, Loader2, Swords,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, FastForward,
 } from 'lucide-react';
 import ChessBoard from '../components/ChessBoard';
 import EvalBar from '../components/EvalBar';
@@ -506,6 +506,91 @@ export default function Lab() {
     setGameAnalysisProgress(null);
   }
 
+  async function startAnalyzeToEnd() {
+    if (isAnalyzingGame || chessRef.current.isGameOver()) return;
+    setIsAnalyzingGame(true);
+    abortAnalysisRef.current = false;
+
+    // Truncate any forward moves if browsing mid-history
+    if (historyIndex < history.length) {
+      setHistory((prev) => prev.slice(0, historyIndex));
+    }
+
+    const maxPlies = 100;
+    let count = 0;
+
+    try {
+      while (!abortAnalysisRef.current && count < maxPlies) {
+        if (chessRef.current.isGameOver()) break;
+
+        const currentFen = chessRef.current.fen();
+
+        setGameAnalysisProgress({
+          current: count + 1,
+          total: 0,
+          ply: historyIndex + count,
+        });
+
+        let res: AnalyzeResponse | null = null;
+        let attempts = 0;
+        while (attempts < 3 && !res && !abortAnalysisRef.current) {
+          try {
+            attempts++;
+            res = await api.post<AnalyzeResponse>('/api/analyze/position', {
+              fen: currentFen,
+              depth,
+              lines: 1,
+            });
+          } catch (err: unknown) {
+            const maybeStatus = (err as { status?: number })?.status;
+            const maybeMsg = (err as { message?: string })?.message;
+            if (maybeStatus === 429 || (maybeMsg && maybeMsg.includes('already_analyzing'))) {
+              await new Promise((r) => setTimeout(r, 200));
+            } else {
+              break;
+            }
+          }
+        }
+
+        if (abortAnalysisRef.current || !res || !res.lines || res.lines.length === 0) break;
+
+        setAnalysisCache((prev) => ({ ...prev, [currentFen]: res! }));
+
+        const bestLine = res.lines[0];
+        const from = bestLine.uci.slice(0, 2);
+        const to = bestLine.uci.slice(2, 4);
+        const promotion = bestLine.uci.length === 5 ? bestLine.uci[4] : undefined;
+
+        let move;
+        try {
+          move = chessRef.current.move({ from, to, promotion } as never);
+        } catch {
+          break;
+        }
+        if (!move) break;
+
+        count++;
+        const nextFen = chessRef.current.fen();
+        const newEntry: HistoryEntry = {
+          fen: nextFen,
+          san: move.san,
+          uci: move.from + move.to + (move.promotion ?? ''),
+        };
+
+        setHistory((prev) => [...prev, newEntry]);
+        setHistoryIndex((prev) => prev + 1);
+        setFenInput(nextFen);
+        bump();
+
+        await new Promise((r) => setTimeout(r, 60));
+      }
+    } finally {
+      setIsAnalyzingGame(false);
+      setGameAnalysisProgress(null);
+      bump();
+    }
+  }
+
   useEffect(() => {
     return () => {
       abortAnalysisRef.current = true;
@@ -627,9 +712,17 @@ export default function Lab() {
       for (let i = 0; i < history.length; i++) {
         const ply = i + 1;
         const cached = analysisCache[history[i].fen];
-        const cp = cached?.lines?.[0]?.cp ?? null;
-        if (cp != null) hasAny = true;
-        entries.push({ ply, cp });
+        const line = cached?.lines?.[0];
+        if (line) {
+          const isWhiteToMove = history[i].fen.split(' ')[1] === 'w';
+          const cp = line.cp != null
+            ? (isWhiteToMove ? line.cp : -line.cp)
+            : (line.mate != null ? (line.mate > 0 ? (isWhiteToMove ? 10000 : -10000) : (isWhiteToMove ? -10000 : 10000)) : null);
+          if (cp != null) hasAny = true;
+          entries.push({ ply, cp });
+        } else {
+          entries.push({ ply, cp: null });
+        }
       }
       return hasAny ? entries : [];
     }
@@ -857,7 +950,9 @@ export default function Lab() {
                     {t('lab.analyzingGame', { defaultValue: 'Analyzing…' })}
                     {gameAnalysisProgress && (
                       <span className="font-mono tabular-nums">
-                        ({gameAnalysisProgress.current}/{gameAnalysisProgress.total})
+                        ({gameAnalysisProgress.total && gameAnalysisProgress.total > 0
+                          ? `${gameAnalysisProgress.current}/${gameAnalysisProgress.total}`
+                          : gameAnalysisProgress.current})
                       </span>
                     )}
                   </span>
@@ -869,21 +964,38 @@ export default function Lab() {
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={startAnalyzeGame}
-                  disabled={history.length === 0 || analyze.isPending}
-                  className="btn-secondary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={
-                    history.length === 0
-                      ? t('lab.noMovesToAnalyze', {
-                          defaultValue: 'No moves to analyze (FEN has only 1 position. Paste a PGN or make moves on the board).',
-                        })
-                      : t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })
-                  }
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span>{t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}</span>
-                </button>
+                <>
+                  {history.length > 0 && (
+                    <button
+                      onClick={startAnalyzeGame}
+                      disabled={analyze.isPending}
+                      className="btn-secondary text-xs"
+                      title={t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>{t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={startAnalyzeToEnd}
+                    disabled={analyze.isPending || isCheckmate || isDraw}
+                    className="btn-secondary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={
+                      isCheckmate || isDraw
+                        ? t('lab.gameOver', { defaultValue: 'Game over' })
+                        : t('lab.analyzeToEndHint', {
+                            defaultValue: 'Play out best moves with Stockfish until checkmate or draw',
+                          })
+                    }
+                  >
+                    <FastForward className="h-3.5 w-3.5" />
+                    <span>
+                      {history.length > 0
+                        ? t('lab.continueToEnd', { defaultValue: 'To the end' })
+                        : t('lab.analyzeToEnd', { defaultValue: 'Analyze to the end' })}
+                    </span>
+                  </button>
+                </>
               )}
               <button
                 onClick={() => analyze.mutate()}

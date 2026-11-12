@@ -1091,6 +1091,10 @@
     "playFromHint": "Playing from here needs White to move — or a move you made here in the Lab just before.",
     "analyzeGame": "Analyze whole game",
     "analyzingGame": "Analyzing game…",
+    "analyzeToEnd": "Analyze to the end",
+    "analyzeToEndHint": "Play out best moves with Stockfish until checkmate or draw",
+    "continueToEnd": "To the end",
+    "gameOver": "Game over",
     "stopAnalysis": "Stop",
     "gameAnalysisDone": "Game analysis complete"
   },
