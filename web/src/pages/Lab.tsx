@@ -612,55 +612,13 @@ export default function Lab() {
                 {fen}
               </div>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <button
-                onClick={() => analyze.mutate()}
-                disabled={analyze.isPending || isAnalyzingGame}
-                className="btn-primary flex-1 text-sm"
-              >
-                {analyze.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                {analyze.isPending
-                  ? t('lab.analyzing', { defaultValue: 'Analyzing…' })
-                  : t('lab.analyze', { defaultValue: 'Analyze' })}
-              </button>
-              {history.length > 0 && (
-                isAnalyzingGame ? (
-                  <div className="flex flex-1 items-center justify-between gap-2 rounded-md bg-chesscom-100 px-3 py-1.5 dark:bg-chesscom-800">
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-chesscom-700 dark:text-chesscom-200">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      {t('lab.analyzingGame', { defaultValue: 'Analyzing game…' })}
-                      {gameAnalysisProgress && (
-                        <span className="font-mono tabular-nums">
-                          ({gameAnalysisProgress.current}/{gameAnalysisProgress.total})
-                        </span>
-                      )}
-                    </span>
-                    <button
-                      onClick={stopAnalyzeGame}
-                      className="text-xs font-semibold text-mistake hover:underline"
-                    >
-                      {t('lab.stopAnalysis', { defaultValue: 'Stop' })}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={startAnalyzeGame}
-                    disabled={analyze.isPending}
-                    className="btn-secondary flex-1 text-sm"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    {t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}
-                  </button>
-                )
-              )}
-              {playFrom ? (
-                <Link to={playFromUrl(playFrom, orientation)} className="btn-secondary flex-1 text-sm">
-                  <Swords className="h-4 w-4" /> {t('lab.playFromHere', { defaultValue: 'Play from here against Patzer' })}
-                </Link>
-              ) : turn === 'black' ? (
-                <div className="flex flex-1 items-center text-xs text-chesscom-500">{t('lab.playFromHint')}</div>
-              ) : null}
-            </div>
+            {playFrom ? (
+              <Link to={playFromUrl(playFrom, orientation)} className="btn-secondary w-full text-sm">
+                <Swords className="h-4 w-4" /> {t('lab.playFromHere', { defaultValue: 'Play from here against Patzer' })}
+              </Link>
+            ) : turn === 'black' ? (
+              <div className="flex items-center text-xs text-chesscom-500">{t('lab.playFromHint')}</div>
+            ) : null}
           </div>
         </section>
 
@@ -672,16 +630,36 @@ export default function Lab() {
                 {t('lab.engine', { defaultValue: 'Engine analysis' })}
               </h2>
               <div className="flex items-center gap-2">
-                {history.length > 0 && !isAnalyzingGame && (
-                  <button
-                    onClick={startAnalyzeGame}
-                    disabled={analyze.isPending}
-                    className="btn-ghost text-xs"
-                    title={t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">{t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}</span>
-                  </button>
+                {history.length > 0 && (
+                  isAnalyzingGame ? (
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1.5 text-xs text-chesscom-700 dark:text-chesscom-200">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        {t('lab.analyzingGame', { defaultValue: 'Analyzing…' })}
+                        {gameAnalysisProgress && (
+                          <span className="font-mono tabular-nums">
+                            ({gameAnalysisProgress.current}/{gameAnalysisProgress.total})
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        onClick={stopAnalyzeGame}
+                        className="text-xs font-semibold text-mistake hover:underline"
+                      >
+                        {t('lab.stopAnalysis', { defaultValue: 'Stop' })}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={startAnalyzeGame}
+                      disabled={analyze.isPending}
+                      className="btn-secondary text-xs"
+                      title={t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>{t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}</span>
+                    </button>
+                  )
                 )}
                 <button
                   onClick={() => analyze.mutate()}

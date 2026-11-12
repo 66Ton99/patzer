@@ -83,7 +83,7 @@ describe('Lab position analysis bar (EvalBar)', () => {
     });
 
     renderLab();
-    const analyzeBtn = screen.getAllByRole('button', { name: 'Analyze' })[0];
+    const analyzeBtn = screen.getByRole('button', { name: 'Analyze' });
     await act(async () => {
       fireEvent.click(analyzeBtn);
     });
@@ -115,7 +115,7 @@ describe('Lab position analysis bar (EvalBar)', () => {
     fireEvent.change(fenInput, { target: { value: fenBlackToMove } });
     fireEvent.click(screen.getByRole('button', { name: 'Set' }));
 
-    const analyzeBtn = screen.getAllByRole('button', { name: 'Analyze' })[0];
+    const analyzeBtn = screen.getByRole('button', { name: 'Analyze' });
     await act(async () => {
       fireEvent.click(analyzeBtn);
     });
@@ -135,7 +135,7 @@ describe('Lab position analysis bar (EvalBar)', () => {
     });
 
     renderLab();
-    const analyzeBtn = screen.getAllByRole('button', { name: 'Analyze' })[0];
+    const analyzeBtn = screen.getByRole('button', { name: 'Analyze' });
     await act(async () => {
       fireEvent.click(analyzeBtn);
     });
@@ -189,7 +189,7 @@ describe('Lab position analysis bar (EvalBar)', () => {
     renderLab();
     // 1. Analyze initial position
     await act(async () => {
-      fireEvent.click(screen.getAllByRole('button', { name: 'Analyze' })[0]);
+      fireEvent.click(screen.getByRole('button', { name: 'Analyze' }));
     });
     expect(await screen.findByText('+0.4')).toBeTruthy();
 
@@ -206,10 +206,10 @@ describe('Lab position analysis bar (EvalBar)', () => {
     expect(screen.getByText('+0.4')).toBeTruthy();
   });
 
-  it('renders Analyze button under the board alongside Play from here', async () => {
+  it('renders Analyze button in Engine analysis panel and Play from here under the board', async () => {
     renderLab();
-    const buttons = screen.getAllByRole('button', { name: 'Analyze' });
-    expect(buttons.length).toBe(2);
+    const analyzeBtn = screen.getByRole('button', { name: 'Analyze' });
+    expect(analyzeBtn).toBeTruthy();
     // There is also the play from here link
     expect(screen.getByRole('link', { name: /Play from here/i })).toBeTruthy();
   });
