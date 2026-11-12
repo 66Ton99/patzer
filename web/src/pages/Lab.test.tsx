@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Chess } from 'chess.js';
 
 const cgApi = {
   set: vi.fn(),
@@ -609,6 +610,272 @@ describe('Lab position analysis bar (EvalBar)', () => {
     // History and moves remain unchanged at 4 / 4, no moves were auto-played
     expect(screen.getByText('4 / 4')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Nc6' })).toBeTruthy();
+  });
+
+  it('fetches deeper analysis instead of trusting shallow cache so MoveList matches the board arrow after upgrading depth', async () => {
+    const startFen = '2kr4/ppp2ppp/8/4q3/1bPnn3/P3B2Q/RP1r1PPP/2K2BNR b - - 0 1';
+    const fenAfterRd7 = (() => { const c = new Chess(startFen); c.move('Rd7'); return c.fen(); })();
+    const fenAfterF5 = (() => { const c = new Chess(startFen); c.move('f5'); return c.fen(); })();
+    const fenAfterBxd4 = (() => { const c = new Chess(fenAfterF5); c.move('Bxd4'); return c.fen(); })();
+
+    const calls: Array<{ fen: string; depth: number; lines: number }> = [];
+    post.mockImplementation((url, body: { fen: string; depth: number; lines: number }) => {
+      if (url !== '/api/analyze/position') return Promise.reject(new Error('not handled'));
+      calls.push({ fen: body.fen, depth: body.depth, lines: body.lines });
+      if (body.fen === startFen && body.depth === 12) {
+        return Promise.resolve({
+          fen: startFen,
+          depth: 12,
+          lines: [{ uci: 'd8d7', san: 'Rd7', pv_san: ['Rd7'], cp: 1491, mate: null, multipv: 1 }],
+        });
+      }
+      if (body.fen === fenAfterRd7) {
+        return Promise.resolve({
+          fen: fenAfterRd7,
+          depth: body.depth,
+          lines: [{ uci: 'g1e2', san: 'Ne2', pv_san: ['Ne2'], cp: -1491, mate: null, multipv: 1 }],
+        });
+      }
+      if (body.fen === startFen && body.depth === 22) {
+        return Promise.resolve({
+          fen: startFen,
+          depth: 22,
+          lines: [{ uci: 'f7f5', san: 'f5', pv_san: ['f5', 'Bxd4'], cp: null, mate: 9, multipv: 1 }],
+        });
+      }
+      if (body.fen === fenAfterF5 && body.depth === 22) {
+        return Promise.resolve({
+          fen: fenAfterF5,
+          depth: 22,
+          lines: [{ uci: 'e3d4', san: 'Bxd4', pv_san: ['Bxd4'], cp: null, mate: -8, multipv: 1 }],
+        });
+      }
+      if (body.fen === fenAfterBxd4) {
+        return Promise.resolve({ fen: fenAfterBxd4, depth: 22, lines: [] });
+      }
+      return Promise.resolve({ fen: body.fen, depth: body.depth, lines: [] });
+    });
+
+    const { container } = renderLab('/lab');
+    const input = screen.getByPlaceholderText(/Paste a FEN or PGN/i);
+    fireEvent.change(input, { target: { value: startFen } });
+    fireEvent.click(screen.getByRole('button', { name: 'Set' }));
+
+    // 1. First analyze at depth 12 (caches Rd7 at depth 12)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Analyze' }));
+    });
+    expect(cgApi.setShapes).toHaveBeenLastCalledWith([{ orig: 'd8', dest: 'd7', brush: 'paleBlue' }]);
+
+    // 2. Increase depth slider to 22 and click "Analyze whole game"
+    const depthSlider = container.querySelector('input[type="range"]') as HTMLInputElement;
+    fireEvent.change(depthSlider, { target: { value: '22' } });
+
+    calls.length = 0;
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Analyze whole game/i }));
+    });
+
+    // Must have re-queried startFen at depth 22 (with lines: 5) and used lines: 1 for continuation plies
+    expect(calls[0]).toEqual({ fen: startFen, depth: 22, lines: 5 });
+    expect(calls[1]).toEqual({ fen: fenAfterF5, depth: 22, lines: 1 });
+
+    // Arrow AND first move in MoveList must both match f5 (never stale Rd7)
+    expect(cgApi.setShapes).toHaveBeenLastCalledWith([{ orig: 'f7', dest: 'f5', brush: 'paleBlue' }]);
+    expect(screen.getAllByRole('button', { name: 'f5' }).length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryAllByRole('button', { name: 'Rd7' })).toHaveLength(0);
+
+    // Stepping Next plays f5 cleanly
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('1 / 2')).toBeTruthy();
+    expect(screen.getByText('B: f5')).toBeTruthy();
+  });
+
+  it('regenerates an already-generated continuation when depth is raised and Analyze whole game is clicked again', async () => {
+    const startFen = '2kr4/ppp2ppp/8/4q3/1bPnn3/P3B2Q/RP1r1PPP/2K2BNR b - - 0 1';
+    const fenAfterRd7 = (() => { const c = new Chess(startFen); c.move('Rd7'); return c.fen(); })();
+    const fenAfterF5 = (() => { const c = new Chess(startFen); c.move('f5'); return c.fen(); })();
+
+    post.mockImplementation((url, body: { fen: string; depth: number }) => {
+      if (url !== '/api/analyze/position') return Promise.reject(new Error('not handled'));
+      if (body.fen === startFen && body.depth === 12) {
+        return Promise.resolve({
+          fen: startFen,
+          depth: 12,
+          lines: [{ uci: 'd8d7', san: 'Rd7', pv_san: ['Rd7'], cp: 1491, mate: null, multipv: 1 }],
+        });
+      }
+      if (body.fen === fenAfterRd7) {
+        return Promise.resolve({ fen: fenAfterRd7, depth: body.depth, lines: [] });
+      }
+      if (body.fen === startFen && body.depth === 22) {
+        return Promise.resolve({
+          fen: startFen,
+          depth: 22,
+          lines: [{ uci: 'f7f5', san: 'f5', pv_san: ['f5'], cp: null, mate: 9, multipv: 1 }],
+        });
+      }
+      if (body.fen === fenAfterF5) {
+        return Promise.resolve({ fen: fenAfterF5, depth: body.depth, lines: [] });
+      }
+      return Promise.resolve({ fen: body.fen, depth: body.depth, lines: [] });
+    });
+
+    const { container } = renderLab('/lab');
+    const input = screen.getByPlaceholderText(/Paste a FEN or PGN/i);
+    fireEvent.change(input, { target: { value: startFen } });
+    fireEvent.click(screen.getByRole('button', { name: 'Set' }));
+
+    // 1. Run whole-game analysis at depth 12 -> generates Rd7
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Analyze whole game/i }));
+    });
+    expect(screen.getAllByRole('button', { name: 'Rd7' }).length).toBeGreaterThanOrEqual(2);
+    expect(cgApi.setShapes).toHaveBeenLastCalledWith([{ orig: 'd8', dest: 'd7', brush: 'paleBlue' }]);
+
+    // 2. Raise depth to 22 and click "Analyze whole game" again -> must regenerate history to f5
+    const depthSlider = container.querySelector('input[type="range"]') as HTMLInputElement;
+    fireEvent.change(depthSlider, { target: { value: '22' } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Analyze whole game/i }));
+    });
+
+    expect(cgApi.setShapes).toHaveBeenLastCalledWith([{ orig: 'f7', dest: 'f5', brush: 'paleBlue' }]);
+    expect(screen.getAllByRole('button', { name: 'f5' }).length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryAllByRole('button', { name: 'Rd7' })).toHaveLength(0);
+    expect(screen.getByText('Start')).toBeTruthy();
+  });
+
+  it('aligns Black-to-move continuations in MoveList under Black column with accurate move numbers and B/W labels', async () => {
+    const startFen = '2kr4/ppp2ppp/8/4q3/1bPnn3/P3B2Q/RP1r1PPP/2K2BNR b - - 0 10';
+    const fenAfterF5 = (() => { const c = new Chess(startFen); c.move('f5'); return c.fen(); })();
+    const fenAfterBxd4 = (() => { const c = new Chess(fenAfterF5); c.move('Bxd4'); return c.fen(); })();
+    const fenAfterQxd4 = (() => { const c = new Chess(fenAfterBxd4); c.move('Qxd4'); return c.fen(); })();
+
+    post.mockImplementation((url, body: { fen: string }) => {
+      if (url !== '/api/analyze/position') return Promise.reject(new Error('not handled'));
+      if (body.fen === startFen) {
+        return Promise.resolve({
+          fen: startFen,
+          depth: 12,
+          lines: [{ uci: 'f7f5', san: 'f5', pv_san: ['f5'], cp: null, mate: 9, multipv: 1 }],
+        });
+      }
+      if (body.fen === fenAfterF5) {
+        return Promise.resolve({
+          fen: fenAfterF5,
+          depth: 12,
+          lines: [{ uci: 'e3d4', san: 'Bxd4', pv_san: ['Bxd4'], cp: null, mate: -8, multipv: 1 }],
+        });
+      }
+      if (body.fen === fenAfterBxd4) {
+        return Promise.resolve({
+          fen: fenAfterBxd4,
+          depth: 12,
+          lines: [{ uci: 'e5d4', san: 'Qxd4', pv_san: ['Qxd4'], cp: null, mate: 8, multipv: 1 }],
+        });
+      }
+      return Promise.resolve({ fen: fenAfterQxd4, depth: 12, lines: [] });
+    });
+
+    renderLab('/lab');
+    const input = screen.getByPlaceholderText(/Paste a FEN or PGN/i);
+    fireEvent.change(input, { target: { value: startFen } });
+    fireEvent.click(screen.getByRole('button', { name: 'Set' }));
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Analyze whole game/i }));
+    });
+
+    // Move row 10. must place empty White cell before Black's f5, and row 11. must place Bxd4 then Qxd4
+    const row10Label = screen.getByText('10.');
+    const row10 = row10Label.parentElement!;
+    expect(row10.children[1].tagName).toBe('DIV');
+    expect(row10.children[2].textContent).toBe('f5');
+
+    const row11Label = screen.getByText('11.');
+    const row11 = row11Label.parentElement!;
+    expect(row11.children[1].textContent).toBe('Bxd4');
+    expect(row11.children[2].textContent).toBe('Qxd4');
+
+    // Stepping to ply 1 shows Black's move B: f5, and ply 2 shows White's move W: Bxd4
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('B: f5')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('W: Bxd4')).toBeTruthy();
+  });
+
+  it('truncates conflicting generated forward moves when single-position Analyze discovers a different best move, while keeping real PGN games intact', async () => {
+    const startFen = '2kr4/ppp2ppp/8/4q3/1bPnn3/P3B2Q/RP1r1PPP/2K2BNR b - - 0 1';
+    const fenAfterRd7 = (() => { const c = new Chess(startFen); c.move('Rd7'); return c.fen(); })();
+
+    post.mockImplementation((url, body: { fen: string; depth: number }) => {
+      if (url !== '/api/analyze/position') return Promise.reject(new Error('not handled'));
+      if (body.fen === startFen && body.depth === 12) {
+        return Promise.resolve({
+          fen: startFen,
+          depth: 12,
+          lines: [{ uci: 'd8d7', san: 'Rd7', pv_san: ['Rd7'], cp: 1491, mate: null, multipv: 1 }],
+        });
+      }
+      if (body.fen === fenAfterRd7) {
+        return Promise.resolve({ fen: fenAfterRd7, depth: body.depth, lines: [] });
+      }
+      if (body.fen === startFen && body.depth === 22) {
+        return Promise.resolve({
+          fen: startFen,
+          depth: 22,
+          lines: [{ uci: 'f7f5', san: 'f5', pv_san: ['f5'], cp: null, mate: 9, multipv: 1 }],
+        });
+      }
+      return Promise.resolve({ fen: body.fen, depth: body.depth, lines: [] });
+    });
+
+    const { container, unmount } = renderLab('/lab');
+    const input = screen.getByPlaceholderText(/Paste a FEN or PGN/i);
+    fireEvent.change(input, { target: { value: startFen } });
+    fireEvent.click(screen.getByRole('button', { name: 'Set' }));
+
+    // Generate continuation with Rd7 at depth 12
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Analyze whole game/i }));
+    });
+    expect(screen.getAllByRole('button', { name: 'Rd7' }).length).toBeGreaterThanOrEqual(2);
+
+    // Upgrade depth to 22 and click single-position Analyze -> returns f5
+    const depthSlider = container.querySelector('input[type="range"]') as HTMLInputElement;
+    fireEvent.change(depthSlider, { target: { value: '22' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze' }));
+
+    // Arrow updates to f5 and stale generated Rd7 continuation is cleared
+    await waitFor(() => {
+      expect(post).toHaveBeenCalledWith('/api/analyze/position', expect.objectContaining({
+        fen: startFen,
+        depth: 22,
+        lines: 5,
+      }));
+      expect(cgApi.setShapes).toHaveBeenLastCalledWith([{ orig: 'f7', dest: 'f5', brush: 'paleBlue' }]);
+    });
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    unmount();
+
+    // Verify real PGN game moves are NOT deleted when Analyze suggests a different best move
+    post.mockResolvedValue({
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      depth: 12,
+      lines: [{ uci: 'd2d4', san: 'd4', pv_san: ['d4'], cp: 25, mate: null, multipv: 1 }],
+    });
+    renderLab({
+      pathname: '/lab',
+      state: { pgn: '1. e4 e5', ply: 0 },
+    });
+    await waitFor(() => {
+      expect(cgApi.setShapes).toHaveBeenLastCalledWith([{ orig: 'd2', dest: 'd4', brush: 'paleBlue' }]);
+    });
+    expect(screen.getByRole('button', { name: 'e4' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'e5' })).toBeTruthy();
   });
 });
 

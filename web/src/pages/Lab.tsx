@@ -138,6 +138,9 @@ export default function Lab() {
   const [tick, setTick] = useState(0);
   const [history, setHistory] = useState<HistoryEntry[]>(initialGame ? initialGame.history : []);
   const [historyIndex, setHistoryIndex] = useState(initialGame ? initialGame.targetPly : 0); // 0 = start; N = after Nth move
+  const [historySource, setHistorySource] = useState<'none' | 'game' | 'manual' | 'generated'>(
+    initialGame ? 'game' : 'none'
+  );
 
   const [orientation, setOrientation] = useState<'white' | 'black'>(
     initialGame?.userColor === 'black' ? 'black' : 'white'
@@ -153,6 +156,7 @@ export default function Lab() {
   const [isAnalyzingGame, setIsAnalyzingGame] = useState(false);
   const [gameAnalysisProgress, setGameAnalysisProgress] = useState<{ current: number; total: number; currentMove: number; totalMoves: number } | null>(null);
   const abortAnalysisRef = useRef(false);
+  const analysisRunIdRef = useRef(0);
 
   const fen = chessRef.current.fen();
   const turn = chessRef.current.turn() === 'w' ? 'white' : 'black';
@@ -242,6 +246,7 @@ export default function Lab() {
         startFenRef.current = startFen;
         chessRef.current = new Chess(targetFen, { skipValidation: true });
         setHistory(entries);
+        setHistorySource('game');
         setHistoryIndex(clamped);
         setFenInput(targetFen);
         setGameTitle(`${data.game.white} vs ${data.game.black}`);
@@ -311,6 +316,7 @@ export default function Lab() {
         chessRef.current = next;
         startFenRef.current = next.fen();
         setHistory([]);
+        setHistorySource('none');
         setHistoryIndex(0);
         setAnalysis(null);
         setFenInput(decoded);
@@ -329,13 +335,22 @@ export default function Lab() {
     try {
       const move = chessRef.current.move({ from, to, promotion } as never);
       if (!move) return;
-      // If we're not at the tip, truncate forward history first.
-      setHistory((prev) => {
-        const trimmed = prev.slice(0, historyIndex);
-        return [...trimmed, { fen: chessRef.current.fen(), san: move.san, uci: move.from + move.to + (move.promotion ?? '') }];
-      });
-      setHistoryIndex((i) => i + 1);
+      const moveUci = move.from + move.to + (move.promotion ?? '');
+      const matchingNext = historyIndex < history.length && history[historyIndex]?.uci === moveUci;
+      if (matchingNext) {
+        setHistoryIndex((i) => i + 1);
+      } else {
+        if (historySource === 'game') setAnalysis(null);
+        setHistorySource('manual');
+        // If we're not at the tip, truncate forward history first.
+        setHistory((prev) => {
+          const trimmed = prev.slice(0, historyIndex);
+          return [...trimmed, { fen: chessRef.current.fen(), san: move.san, uci: moveUci }];
+        });
+        setHistoryIndex((i) => i + 1);
+      }
       setFenInput(chessRef.current.fen());
+      analyze.reset();
       bump();
     } catch {
       // illegal — chessground will reject via legalDests; ignore
@@ -344,10 +359,13 @@ export default function Lab() {
   }
 
   function resetBoard() {
+    stopAnalyzeGame();
     chessRef.current = new Chess();
     startFenRef.current = chessRef.current.fen();
     setHistory([]);
+    setHistorySource('none');
     setHistoryIndex(0);
+    setFenInput(chessRef.current.fen());
     setGameTitle(null);
     setAnalysis(null);
     analyze.reset();
@@ -365,9 +383,11 @@ export default function Lab() {
     // 1. Try as standard FEN first
     try {
       const test = new Chess(trimmed);
+      stopAnalyzeGame();
       chessRef.current = test;
       startFenRef.current = test.fen();
       setHistory([]);
+      setHistorySource('none');
       setHistoryIndex(0);
       setGameTitle(null);
       setAnalysis(null);
@@ -383,10 +403,12 @@ export default function Lab() {
     try {
       const { startFen, history: entries, title } = parseGamePgn(trimmed);
       if (entries.length > 0) {
+        stopAnalyzeGame();
         const replay = new Chess(entries[entries.length - 1].fen, { skipValidation: true });
         chessRef.current = replay;
         startFenRef.current = startFen;
         setHistory(entries);
+        setHistorySource('game');
         setHistoryIndex(entries.length);
         setFenInput(entries[entries.length - 1].fen);
         setGameTitle(title ?? null);
@@ -396,10 +418,12 @@ export default function Lab() {
         bump();
         return;
       } else if (startFen && startFen !== new Chess().fen()) {
+        stopAnalyzeGame();
         const test = new Chess(startFen);
         chessRef.current = test;
         startFenRef.current = test.fen();
         setHistory([]);
+        setHistorySource('none');
         setHistoryIndex(0);
         setGameTitle(null);
         setAnalysis(null);
@@ -429,76 +453,140 @@ export default function Lab() {
     onMove(uci);
   }
 
+  async function analyzePositionWithRetry(
+    targetFen: string,
+    reqDepth: number,
+    reqLines: number,
+    runId: number,
+  ): Promise<AnalyzeResponse | null> {
+    let errorAttempts = 0;
+    let rateLimitWaits = 0;
+    while (
+      errorAttempts < 3 &&
+      rateLimitWaits < 60 &&
+      !abortAnalysisRef.current &&
+      analysisRunIdRef.current === runId
+    ) {
+      try {
+        return await api.post<AnalyzeResponse>('/api/analyze/position', {
+          fen: targetFen,
+          depth: reqDepth,
+          lines: reqLines,
+        });
+      } catch (err: unknown) {
+        const maybeStatus = (err as { status?: number })?.status;
+        const maybeMsg = (err as { message?: string })?.message;
+        if (maybeStatus === 429 || (maybeMsg && maybeMsg.includes('already_analyzing'))) {
+          rateLimitWaits++;
+          await new Promise((r) => setTimeout(r, 500));
+        } else {
+          errorAttempts++;
+          if (maybeStatus && maybeStatus >= 400 && maybeStatus < 500) {
+            break;
+          }
+          if (errorAttempts < 3 && !abortAnalysisRef.current && analysisRunIdRef.current === runId) {
+            await new Promise((r) => setTimeout(r, 500));
+          }
+        }
+      }
+    }
+    return null;
+  }
+
   async function startAnalyzeGame() {
     if (isAnalyzingGame) return;
+    const runId = ++analysisRunIdRef.current;
     setIsAnalyzingGame(true);
     abortAnalysisRef.current = false;
+    analyze.reset();
 
-    // Case 1: history is empty (pasted FEN or starting position without moves)
-    // Analyze from current position to the end of the game with Stockfish
-    if (history.length === 0) {
-      const simChess = new Chess(fen, { skipValidation: true });
-      const currentMoveNum = parseInt(fen.split(' ')[5] || '1', 10) || 1;
-      const isBlackFirst = fen.split(' ')[1] === 'b';
+    // Maintain a synchronous local cache snapshot so async iterations never read stale React state
+    // and never confuse a shallower cached result for a completed deeper search.
+    const localCache: Record<string, AnalyzeResponse> = { ...analysisCache };
+    if (result && result.fen) {
+      localCache[result.fen] = result;
+    }
 
+    // Case 1: generate best-play continuation to the end of the game when:
+    // - starting without move history (pasted FEN or initial position), OR
+    // - regenerating an already-generated engine continuation (e.g. after changing depth), OR
+    // - continuing from the tip of manual sandbox moves.
+    const shouldGenerateContinuation =
+      history.length === 0 ||
+      historySource === 'generated' ||
+      (historySource === 'manual' && historyIndex === history.length);
+
+    if (shouldGenerateContinuation) {
+      const anchorIndex = historyIndex;
+      const anchorFen = fen;
+      const prefix = history.slice(0, anchorIndex);
+
+      if (prefix.length !== history.length) {
+        setHistory(prefix);
+      }
+      setHistorySource('generated');
+
+      const simChess = new Chess(anchorFen, { skipValidation: true });
       const newEntries: HistoryEntry[] = [];
-      const maxPlies = 100;
+      const maxPlies = 120;
       let count = 0;
 
+      const initMoveNum = parseInt(anchorFen.split(' ')[5] || '1', 10) || 1;
       setGameAnalysisProgress({
         current: 1,
         total: 0,
-        currentMove: currentMoveNum,
+        currentMove: initMoveNum,
         totalMoves: 0,
       });
 
       try {
-        // Evaluate starting position if not already in cache
-        if (!analysisCache[fen] || analysisCache[fen].depth < depth) {
-          try {
-            const startRes = await api.post<AnalyzeResponse>('/api/analyze/position', {
-              fen,
-              depth,
-              lines,
-            });
-            setAnalysisCache((prev) => ({ ...prev, [startRes.fen]: startRes }));
-          } catch {
-            // continue
-          }
-        }
-
-        while (!abortAnalysisRef.current && count < maxPlies) {
+        while (
+          !abortAnalysisRef.current &&
+          analysisRunIdRef.current === runId &&
+          count < maxPlies
+        ) {
           if (simChess.isGameOver()) break;
 
           const currentFen = simChess.fen();
-          let res = analysisCache[currentFen];
+          const legalCount = Math.max(1, simChess.moves().length);
+          // Request full MultiPV `lines` on the anchor position the user is viewing,
+          // and `lines: 1` for deeper continuation plies so Stockfish searches fast at depth 22.
+          const reqLines = count === 0 ? Math.max(1, lines) : 1;
+          const neededLines = Math.min(reqLines, legalCount);
 
-          if (!res || res.depth < depth || !res.lines || res.lines.length === 0) {
-            let attempts = 0;
-            while (attempts < 3 && !res && !abortAnalysisRef.current) {
-              try {
-                attempts++;
-                res = await api.post<AnalyzeResponse>('/api/analyze/position', {
-                  fen: currentFen,
-                  depth,
-                  lines: Math.max(lines, 1),
-                });
-                setAnalysisCache((prev) => ({ ...prev, [res.fen]: res }));
-              } catch (err: unknown) {
-                const maybeStatus = (err as { status?: number })?.status;
-                const maybeMsg = (err as { message?: string })?.message;
-                if (maybeStatus === 429 || (maybeMsg && maybeMsg.includes('already_analyzing'))) {
-                  await new Promise((r) => setTimeout(r, 200));
-                } else {
-                  break;
-                }
-              }
+          let res: AnalyzeResponse | null = null;
+          const cached = localCache[currentFen];
+          if (
+            cached &&
+            cached.depth >= depth &&
+            cached.lines &&
+            cached.lines.length >= neededLines &&
+            cached.lines[0]?.uci &&
+            cached.lines[0].uci.length >= 4
+          ) {
+            res = cached;
+          } else {
+            const fetched = await analyzePositionWithRetry(currentFen, depth, reqLines, runId);
+            if (fetched && !abortAnalysisRef.current && analysisRunIdRef.current === runId) {
+              res = fetched;
+              const cacheKey = fetched.fen || currentFen;
+              localCache[cacheKey] = fetched;
+              setAnalysisCache((prev) => ({ ...prev, [cacheKey]: fetched }));
             }
           }
 
-          if (abortAnalysisRef.current || !res || !res.lines || res.lines.length === 0) break;
+          if (
+            abortAnalysisRef.current ||
+            analysisRunIdRef.current !== runId ||
+            !res ||
+            !res.lines ||
+            res.lines.length === 0
+          ) {
+            break;
+          }
 
           const bestLine = res.lines[0];
+          if (!bestLine?.uci || bestLine.uci.length < 4) break;
           const from = bestLine.uci.slice(0, 2);
           const to = bestLine.uci.slice(2, 4);
           const promotion = bestLine.uci.length === 5 ? bestLine.uci[4] : undefined;
@@ -519,9 +607,10 @@ export default function Lab() {
             uci: move.from + move.to + (move.promotion ?? ''),
           });
 
-          const pliesFromStart = isBlackFirst ? count + 1 : count;
-          const currentMove = currentMoveNum + Math.floor(pliesFromStart / 2);
+          // Live-update MoveList & EvalGraph while keeping the board stationary at anchorIndex!
+          setHistory([...prefix, ...newEntries]);
 
+          const currentMove = parseInt(nextFen.split(' ')[5] || String(initMoveNum), 10) || initMoveNum;
           setGameAnalysisProgress({
             current: count + 1,
             total: 0,
@@ -529,21 +618,16 @@ export default function Lab() {
             totalMoves: 0,
           });
         }
-
-        if (newEntries.length > 0) {
-          setHistory(newEntries);
-          // CRITICAL: Keep board on starting position — do NOT play moves on the board!
-          setHistoryIndex(0);
-          bump();
-        }
       } finally {
-        setIsAnalyzingGame(false);
-        setGameAnalysisProgress(null);
+        if (analysisRunIdRef.current === runId) {
+          setIsAnalyzingGame(false);
+          setGameAnalysisProgress(null);
+        }
       }
       return;
     }
 
-    // Case 2: history.length > 0 (existing game history)
+    // Case 2: Existing game history ('game' or stepped-back 'manual' variation)
     // Collect all positions in game: 0 = start, 1..N = after each move
     const positionsList: { index: number; fen: string }[] = [
       { index: 0, fen: startFenRef.current },
@@ -572,7 +656,7 @@ export default function Lab() {
 
     try {
       for (const idx of orderIndices) {
-        if (abortAnalysisRef.current) break;
+        if (abortAnalysisRef.current || analysisRunIdRef.current !== runId) break;
 
         const target = positionsList[idx];
         if (!target) continue;
@@ -585,45 +669,45 @@ export default function Lab() {
           totalMoves,
         });
 
-        // Skip if already in cache with >= depth and lines
-        const existing = analysisCache[target.fen];
-        if (existing && existing.depth >= depth && existing.lines.length >= lines) {
+        let legalCount = lines;
+        try {
+          const probe = new Chess(target.fen, { skipValidation: true });
+          if (probe.isGameOver()) {
+            processedCount++;
+            continue;
+          }
+          legalCount = Math.max(1, probe.moves().length);
+        } catch {
+          // ignore
+        }
+        const neededLines = Math.min(lines, legalCount);
+
+        // Skip if already in cache with >= depth and needed lines
+        const existing = localCache[target.fen];
+        if (existing && existing.depth >= depth && existing.lines.length >= neededLines) {
           processedCount++;
           continue;
         }
 
-        let attempts = 0;
-        let success = false;
-        while (attempts < 3 && !success && !abortAnalysisRef.current) {
-          try {
-            attempts++;
-            const res = await api.post<AnalyzeResponse>('/api/analyze/position', {
-              fen: target.fen,
-              depth,
-              lines,
-            });
-            setAnalysisCache((prev) => ({ ...prev, [res.fen]: res }));
-            success = true;
-          } catch (err: unknown) {
-            const maybeStatus = (err as { status?: number })?.status;
-            const maybeMsg = (err as { message?: string })?.message;
-            if (maybeStatus === 429 || (maybeMsg && maybeMsg.includes('already_analyzing'))) {
-              await new Promise((r) => setTimeout(r, 250));
-            } else {
-              break;
-            }
-          }
+        const fetched = await analyzePositionWithRetry(target.fen, depth, lines, runId);
+        if (fetched && !abortAnalysisRef.current && analysisRunIdRef.current === runId) {
+          const cacheKey = fetched.fen || target.fen;
+          localCache[cacheKey] = fetched;
+          setAnalysisCache((prev) => ({ ...prev, [cacheKey]: fetched }));
         }
         processedCount++;
       }
     } finally {
-      setIsAnalyzingGame(false);
-      setGameAnalysisProgress(null);
+      if (analysisRunIdRef.current === runId) {
+        setIsAnalyzingGame(false);
+        setGameAnalysisProgress(null);
+      }
     }
   }
 
   function stopAnalyzeGame() {
     abortAnalysisRef.current = true;
+    analysisRunIdRef.current++;
     setIsAnalyzingGame(false);
     setGameAnalysisProgress(null);
   }
@@ -631,6 +715,7 @@ export default function Lab() {
   useEffect(() => {
     return () => {
       abortAnalysisRef.current = true;
+      analysisRunIdRef.current++;
     };
   }, []);
 
@@ -662,9 +747,23 @@ export default function Lab() {
   const result = analyze.data;
 
   useEffect(() => {
-    if (result && result.fen) {
-      setAnalysisCache((prev) => ({ ...prev, [result.fen]: result }));
+    if (!result || !result.fen) return;
+    setAnalysisCache((prev) => ({ ...prev, [result.fen]: result }));
+    // If we are stepping through an engine-generated continuation and single-position Analyze
+    // finds a different best move than the stored next move, drop the obsolete future moves
+    // so MoveList / Next never contradict the displayed arrow.
+    if (
+      historySource === 'generated' &&
+      result.fen === fen &&
+      historyIndex < history.length
+    ) {
+      const bestUci = result.lines?.[0]?.uci;
+      const nextMove = history[historyIndex];
+      if (bestUci && nextMove && bestUci !== nextMove.uci) {
+        setHistory((prev) => prev.slice(0, historyIndex));
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result]);
 
   const currentAnalysis = (result && result.fen === fen) ? result : (analysisCache[fen] ?? null);
@@ -721,7 +820,7 @@ export default function Lab() {
   const arrows = useMemo(() => {
     if (!currentAnalysis || currentAnalysis.lines.length === 0) return [];
     const best = currentAnalysis.lines[0];
-    if (!best) return [];
+    if (!best || !best.uci || best.uci.length < 4) return [];
     return [{ orig: best.uci.slice(0, 2), dest: best.uci.slice(2, 4), brush: 'paleBlue' as const }];
   }, [currentAnalysis]);
 
@@ -748,17 +847,33 @@ export default function Lab() {
       let hasAny = false;
       for (let i = 0; i < history.length; i++) {
         const ply = i + 1;
-        const cached = analysisCache[history[i].fen];
+        const posFen = history[i].fen;
+        const cached = analysisCache[posFen];
         const line = cached?.lines?.[0];
         if (line) {
-          const isWhiteToMove = history[i].fen.split(' ')[1] === 'w';
+          const isWhiteToMove = posFen.split(' ')[1] === 'w';
           const cp = line.cp != null
             ? (isWhiteToMove ? line.cp : -line.cp)
             : (line.mate != null ? (line.mate > 0 ? (isWhiteToMove ? 10000 : -10000) : (isWhiteToMove ? -10000 : 10000)) : null);
           if (cp != null) hasAny = true;
           entries.push({ ply, cp });
         } else {
-          entries.push({ ply, cp: null });
+          let terminalCp: number | null = null;
+          if (i === history.length - 1) {
+            try {
+              const terminalPos = new Chess(posFen, { skipValidation: true });
+              if (terminalPos.isCheckmate()) {
+                terminalCp = terminalPos.turn() === 'w' ? -10000 : 10000;
+                hasAny = true;
+              } else if (terminalPos.isDraw()) {
+                terminalCp = 0;
+                hasAny = true;
+              }
+            } catch {
+              // ignore invalid fen
+            }
+          }
+          entries.push({ ply, cp: terminalCp });
         }
       }
       return hasAny ? entries : [];
@@ -799,6 +914,11 @@ export default function Lab() {
     };
   }, []);
 
+  const startFenParts = startFenRef.current.split(' ');
+  const startsBlack = startFenParts[1] === 'b';
+  const startMoveNumber = Math.max(1, parseInt(startFenParts[5] || '1', 10) || 1);
+  const currentMoveIsWhite = startsBlack ? historyIndex % 2 === 0 : historyIndex % 2 === 1;
+
   return (
     <div className="flex flex-1 flex-col gap-3 min-h-0 lg:flex-row lg:gap-4 lg:h-full lg:overflow-hidden">
       {/* BOARD PANE — Nothing above, nothing below, takes all available free space */}
@@ -829,7 +949,6 @@ export default function Lab() {
             }
           >
             <ChessBoard
-              key={tick === 0 ? 'init' : 'live'}
               fen={fen}
               orientation={orientation}
               turnColor={turn}
@@ -932,7 +1051,7 @@ export default function Lab() {
                 {currentHistoryEntry ? (
                   <>
                     <span className="font-medium text-chesscom-900 dark:text-chesscom-100">
-                      {historyIndex % 2 === 1 ? t('review.sideShort.white', { defaultValue: 'W' }) : t('review.sideShort.black', { defaultValue: 'B' })}: {currentHistoryEntry.san}
+                      {currentMoveIsWhite ? t('review.sideShort.white', { defaultValue: 'W' }) : t('review.sideShort.black', { defaultValue: 'B' })}: {currentHistoryEntry.san}
                     </span>
                     {currentAnalyzedMove?.best_move_san && currentAnalyzedMove.best_move_san !== currentHistoryEntry.san && (
                       <span className="ml-2 text-[11px] text-chesscom-400">
@@ -969,6 +1088,8 @@ export default function Lab() {
               onSelect={gotoPly}
               phaseSplit={analysis?.phase_split}
               maxHeight={260}
+              startsBlack={startsBlack}
+              startMoveNumber={startMoveNumber}
             />
           </div>
         )}
@@ -1006,7 +1127,7 @@ export default function Lab() {
                   disabled={analyze.isPending || isAnalyzingGame}
                   className="btn-secondary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                   title={
-                    history.length === 0
+                    history.length === 0 || historySource === 'generated'
                       ? t('lab.analyzeToEnd', { defaultValue: 'Analyze to the end' })
                       : t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })
                   }

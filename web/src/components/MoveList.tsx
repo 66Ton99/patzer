@@ -16,16 +16,37 @@ interface Props {
   maxHeight?: number;
   /** Plies to make stand out (the rest is dimmed) — see MoveRow. */
   highlight?: Set<number> | null;
+  /** True when ply 1 is Black's move (e.g. a FEN position with Black to move). */
+  startsBlack?: boolean;
+  /** Fullmove number for the first move row (defaults to 1). */
+  startMoveNumber?: number;
 }
 
 // Two-column move-pair-per-row list. The badge sits to the right of each SAN,
 // the current half-move is highlighted, and the row's left edge is tinted by
 // the worst classification in the pair (matching chess.com Game Review).
-export default function MoveList({ moves, current, onSelect, phaseSplit, maxHeight = 420, highlight }: Props) {
+export default function MoveList({
+  moves,
+  current,
+  onSelect,
+  phaseSplit,
+  maxHeight = 420,
+  highlight,
+  startsBlack = false,
+  startMoveNumber = 1,
+}: Props) {
   const { t } = useTranslation();
+  const baseNum = Math.max(1, startMoveNumber);
   const rows: { num: number; white?: Move; black?: Move }[] = [];
-  for (let i = 0; i < moves.length; i += 2) {
-    rows.push({ num: i / 2 + 1, white: moves[i], black: moves[i + 1] });
+  if (startsBlack && moves.length > 0) {
+    rows.push({ num: baseNum, white: undefined, black: moves[0] });
+    for (let i = 1; i < moves.length; i += 2) {
+      rows.push({ num: baseNum + Math.ceil(i / 2), white: moves[i], black: moves[i + 1] });
+    }
+  } else {
+    for (let i = 0; i < moves.length; i += 2) {
+      rows.push({ num: baseNum + i / 2, white: moves[i], black: moves[i + 1] });
+    }
   }
 
   // Build a map from "move-pair number" to "phase label to insert BEFORE it".
