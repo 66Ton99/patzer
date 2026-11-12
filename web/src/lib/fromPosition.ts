@@ -29,6 +29,11 @@ export function playFromUrl(p: { fen: string; moves: string[] }, color?: 'white'
   return `/play?${q.toString()}`;
 }
 
+/** The Lab page link to analyze a position. */
+export function labUrl(fen: string): string {
+  return `/lab#${encodeURI(fen)}`;
+}
+
 /** Game Review's "play from here" (?fen=&moves=), checked the way the server
  *  checks it: a white-to-move position, then up to two moves already played,
  *  and a game that isn't over. `at` is the position the game starts at;

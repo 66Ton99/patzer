@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { Chess } from 'chess.js';
 import {
@@ -17,6 +17,19 @@ import ExplorerPanel from '../components/ExplorerPanel';
 import { api } from '../api';
 import { useAuth } from '../state/auth';
 import { parseFromPosition, playFromPosition, playFromUrl } from '../lib/fromPosition';
+
+function safeDecodeFen(raw: string): string {
+  if (!raw) return '';
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    try {
+      return decodeURI(raw);
+    } catch {
+      return raw;
+    }
+  }
+}
 
 interface AnalyzeLine {
   uci: string;
@@ -42,10 +55,12 @@ interface HistoryEntry {
 export default function Lab() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const location = useLocation();
 
-  // Get the FEN from the hash location inside the current URI.
-  // Hashes are client-only, therefore we're not scrambling anything up on the server side.
-  const initialFen = decodeURI(window.location.hash.slice(1)) ?? '';
+  // Get the FEN from hash (#fen) or query (?fen=)
+  const hash = location.hash ? location.hash.slice(1) : (typeof window !== 'undefined' ? window.location.hash.slice(1) : '');
+  const searchFen = new URLSearchParams(location.search).get('fen');
+  const initialFen = safeDecodeFen(hash || searchFen || '');
 
   // instantiate a proper chess object to be referenced later, we skip validation for preloaded FENs
   // as this often used to just manipulate a position, anarchy-chess style.
@@ -87,6 +102,25 @@ export default function Lab() {
   });
 
   function bump() { setTick((k) => k + 1); }
+
+  useEffect(() => {
+    const raw = location.hash ? location.hash.slice(1) : (typeof window !== 'undefined' ? window.location.hash.slice(1) : '');
+    const decoded = safeDecodeFen(raw || new URLSearchParams(location.search).get('fen') || '');
+    if (decoded && decoded !== startFenRef.current) {
+      try {
+        const next = new Chess(decoded, { skipValidation: true });
+        chessRef.current = next;
+        startFenRef.current = next.fen();
+        setHistory([]);
+        setHistoryIndex(0);
+        setFenInput(decoded);
+        setFenError(null);
+        bump();
+      } catch {
+        // ignore invalid
+      }
+    }
+  }, [location.hash, location.search]);
 
   function onMove(uci: string) {
     const from = uci.slice(0, 2);
@@ -274,13 +308,25 @@ export default function Lab() {
                 {fen}
               </div>
             </div>
-            {playFrom ? (
-              <Link to={playFromUrl(playFrom, orientation)} className="btn-secondary w-full text-sm">
-                <Swords className="h-4 w-4" /> {t('lab.playFromHere')}
-              </Link>
-            ) : turn === 'black' && (
-              <div className="text-xs text-chesscom-500">{t('lab.playFromHint')}</div>
-            )}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                onClick={() => analyze.mutate()}
+                disabled={analyze.isPending}
+                className="btn-primary flex-1 text-sm"
+              >
+                {analyze.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                {analyze.isPending
+                  ? t('lab.analyzing', { defaultValue: 'Analyzing…' })
+                  : t('lab.analyze', { defaultValue: 'Analyze' })}
+              </button>
+              {playFrom ? (
+                <Link to={playFromUrl(playFrom, orientation)} className="btn-secondary flex-1 text-sm">
+                  <Swords className="h-4 w-4" /> {t('lab.playFromHere', { defaultValue: 'Play from here against Patzer' })}
+                </Link>
+              ) : turn === 'black' ? (
+                <div className="flex flex-1 items-center text-xs text-chesscom-500">{t('lab.playFromHint')}</div>
+              ) : null}
+            </div>
           </div>
         </section>
 

@@ -7,9 +7,10 @@
 
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Swords } from 'lucide-react';
+import { Swords, Microscope } from 'lucide-react';
 import { CLASS_STYLE, GLYPH_SVG } from '../lib/classification';
 import CoachPanel from './CoachPanel';
+import { labUrl } from '../lib/fromPosition';
 import type { AnalyzedMove } from '../types';
 
 /** Lichess win-chance curve (same as the server's cpToWinPct), 0..100 for White. */
@@ -85,9 +86,14 @@ export default function MoveExplanation({ move, userColor, coachConfigured, coac
       )}
 
       {playFrom && (
-        <Link to={playFrom} className="btn-secondary mt-2 w-full text-xs">
-          <Swords className="h-3.5 w-3.5" /> {t('review.why.playFromHere')}
-        </Link>
+        <div className="mt-2 space-y-1.5">
+          <Link to={playFrom} className="btn-secondary w-full text-xs">
+            <Swords className="h-3.5 w-3.5" /> {t('review.why.playFromHere')}
+          </Link>
+          <Link to={labUrl(move.fen_after)} className="btn-secondary w-full text-xs">
+            <Microscope className="h-3.5 w-3.5" /> {t('review.why.analyze')}
+          </Link>
+        </div>
       )}
 
       <div className="mt-3 border-t border-chesscom-200 pt-2 dark:border-chesscom-700">

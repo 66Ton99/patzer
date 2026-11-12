@@ -83,7 +83,7 @@ describe('Lab position analysis bar (EvalBar)', () => {
     });
 
     renderLab();
-    const analyzeBtn = screen.getByRole('button', { name: 'Analyze' });
+    const analyzeBtn = screen.getAllByRole('button', { name: 'Analyze' })[0];
     await act(async () => {
       fireEvent.click(analyzeBtn);
     });
@@ -115,7 +115,7 @@ describe('Lab position analysis bar (EvalBar)', () => {
     fireEvent.change(fenInput, { target: { value: fenBlackToMove } });
     fireEvent.click(screen.getByRole('button', { name: 'Set' }));
 
-    const analyzeBtn = screen.getByRole('button', { name: 'Analyze' });
+    const analyzeBtn = screen.getAllByRole('button', { name: 'Analyze' })[0];
     await act(async () => {
       fireEvent.click(analyzeBtn);
     });
@@ -135,7 +135,7 @@ describe('Lab position analysis bar (EvalBar)', () => {
     });
 
     renderLab();
-    const analyzeBtn = screen.getByRole('button', { name: 'Analyze' });
+    const analyzeBtn = screen.getAllByRole('button', { name: 'Analyze' })[0];
     await act(async () => {
       fireEvent.click(analyzeBtn);
     });
@@ -189,7 +189,7 @@ describe('Lab position analysis bar (EvalBar)', () => {
     renderLab();
     // 1. Analyze initial position
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Analyze' }));
+      fireEvent.click(screen.getAllByRole('button', { name: 'Analyze' })[0]);
     });
     expect(await screen.findByText('+0.4')).toBeTruthy();
 
@@ -204,6 +204,20 @@ describe('Lab position analysis bar (EvalBar)', () => {
 
     // Cached evaluation for start position should be immediately restored (+0.4)
     expect(screen.getByText('+0.4')).toBeTruthy();
+  });
+
+  it('renders Analyze button under the board alongside Play from here', async () => {
+    renderLab();
+    const buttons = screen.getAllByRole('button', { name: 'Analyze' });
+    expect(buttons.length).toBe(2);
+    // There is also the play from here link
+    expect(screen.getByRole('link', { name: /Play from here/i })).toBeTruthy();
+  });
+
+  it('loads initial position from URL hash', async () => {
+    const customFen = 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3';
+    renderLab(`/lab#${encodeURI(customFen)}`);
+    expect(screen.getByText(customFen)).toBeTruthy();
   });
 });
 

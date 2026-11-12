@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Chess } from 'chess.js';
-import { parseFromPosition, playFromPosition, playFromUrl } from './fromPosition';
+import { parseFromPosition, playFromPosition, playFromUrl, labUrl } from './fromPosition';
 
 // Positions of 1. e4 e5 2. Nf3, as Game Review builds them.
 function positionsOf(sans: string[]) {
@@ -51,5 +51,10 @@ describe('play from here', () => {
     expect(parseFromPosition(positions[0]!.fen, 'e2e5')).toBeNull();         // illegal move
     expect(parseFromPosition(positions[0]!.fen, 'e2e4,e7e5,g1f3')).toBeNull(); // too many
     expect(parseFromPosition(null, null)).toBeNull();
+  });
+
+  it('builds a Lab URL with encoded FEN', () => {
+    const fen = positions[2]!.fen;
+    expect(labUrl(fen)).toBe(`/lab#${encodeURI(fen)}`);
   });
 });
