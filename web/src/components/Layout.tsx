@@ -134,8 +134,10 @@ export default function Layout({ onOpenPalette, onOpenShortcuts }: LayoutProps) 
     );
   }
 
+  const isLab = location.pathname.startsWith('/lab');
+
   return (
-    <div className="flex min-h-screen flex-col bg-panel dark:bg-chesscom-950">
+    <div className={cn('flex min-h-screen flex-col bg-panel dark:bg-chesscom-950', isLab && 'lg:h-screen lg:overflow-hidden')}>
       <UpdateNotice />
       {/* Top bar — dark sage, horizontal nav. */}
       <header className="sticky top-0 z-30 bg-chesscom-900 text-white shadow-soft">
@@ -356,14 +358,21 @@ export default function Layout({ onOpenPalette, onOpenShortcuts }: LayoutProps) 
       )}
 
       {/* Main content */}
-      <main className="flex-1">
-        <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6">
+      <main className="flex-1 flex flex-col min-h-0">
+        <div
+          className={cn(
+            'mx-auto w-full flex-1',
+            isLab
+              ? 'max-w-[1920px] px-2 py-2 sm:px-4 sm:py-2 flex flex-col min-h-0'
+              : 'max-w-7xl px-3 py-4 sm:px-6 sm:py-6',
+          )}
+        >
           <Outlet />
         </div>
       </main>
 
       {/* Footer with version chip and the one place the repo is advertised. */}
-      <footer className="border-t border-chesscom-200 bg-white px-3 py-2 text-xs text-chesscom-400 dark:border-chesscom-800 dark:bg-chesscom-900">
+      <footer className={cn('border-t border-chesscom-200 bg-white px-3 py-2 text-xs text-chesscom-400 dark:border-chesscom-800 dark:bg-chesscom-900', isLab && 'lg:hidden')}>
         <div className="flex items-center justify-center gap-2">
           {version && (
             <button

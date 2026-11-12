@@ -577,18 +577,60 @@ export default function Lab() {
       .map((m) => ({ ply: m.ply, classification: m.classification }));
   }, [analysis]);
 
+  const boardAreaRef = useRef<HTMLElement | null>(null);
+  const [boardSize, setBoardSize] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = boardAreaRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const update = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w <= 0 || h <= 0) return;
+      // 18px EvalBar + 8px gap = 26px horizontal overhead
+      const availW = Math.max(200, w - 26);
+      const availH = Math.max(200, h);
+      const s = Math.floor(Math.min(availW, availH));
+      if (s > 0) setBoardSize(s);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener('resize', update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+    };
+  }, []);
+
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:gap-5 lg:h-[calc(100vh-6.5rem)] lg:overflow-hidden">
+    <div className="flex flex-1 flex-col gap-3 min-h-0 lg:flex-row lg:gap-4 lg:h-full lg:overflow-hidden">
       {/* BOARD PANE — Nothing above, nothing below, takes all available free space */}
-      <section className="flex flex-1 min-w-0 min-h-0 items-center justify-center">
-        <div className="flex w-full items-stretch justify-center gap-2 max-w-[calc(100vh-8rem)]">
+      <section
+        ref={boardAreaRef}
+        className="flex flex-1 min-w-0 min-h-0 h-full w-full items-center justify-center overflow-hidden"
+      >
+        <div
+          className="flex items-stretch justify-center gap-2"
+          style={
+            boardSize
+              ? { width: boardSize + 26, height: boardSize }
+              : { width: '100%', maxWidth: 'calc(100vh - 4rem)' }
+          }
+        >
           <EvalBar
             cp={evalCp}
             mate={evalMate}
             orientation={orientation}
+            height={boardSize ?? undefined}
           />
           <div
-            className={`relative aspect-square w-full min-w-0 flex-1 board-theme-${user?.profile.board_theme ?? 'green'}`}
+            className={`relative aspect-square min-w-0 board-theme-${user?.profile.board_theme ?? 'green'}`}
+            style={
+              boardSize
+                ? { width: boardSize, height: boardSize }
+                : { width: '100%', flex: 1 }
+            }
           >
             <ChessBoard
               key={tick === 0 ? 'init' : 'live'}
@@ -599,6 +641,7 @@ export default function Lab() {
               onMove={onMove}
               lastMove={lastMove}
               arrows={arrows as never}
+              size={boardSize ?? undefined}
               resetKey={tick}
             />
             {currentAnalyzedMove && currentDestSquare && (
@@ -613,7 +656,7 @@ export default function Lab() {
       </section>
 
       {/* CONTROLS COLUMN — All controls reside exclusively in this right column */}
-      <aside className="w-full space-y-3 lg:w-[420px] lg:flex-initial lg:max-w-md lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+      <aside className="w-full space-y-3 lg:w-[400px] xl:w-[420px] lg:shrink-0 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:pr-1">
         {/* Header / Info card */}
         <div className="card p-3 sm:p-4">
           <div className="flex items-center justify-between">
