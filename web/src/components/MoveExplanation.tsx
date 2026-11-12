@@ -11,7 +11,7 @@ import { Swords, Microscope } from 'lucide-react';
 import { CLASS_STYLE, GLYPH_SVG } from '../lib/classification';
 import CoachPanel from './CoachPanel';
 import { labUrl, labGameUrl } from '../lib/fromPosition';
-import type { AnalyzedMove } from '../types';
+import type { AnalysisResult, AnalyzedMove } from '../types';
 
 /** Lichess win-chance curve (same as the server's cpToWinPct), 0..100 for White. */
 export function whiteWinPct(cp: number | null | undefined): number {
@@ -42,6 +42,7 @@ interface Props {
   gameId?: number;
   pgn?: string;
   gameTitle?: string;
+  analysis?: AnalysisResult | null;
   analysisMoves?: AnalyzedMove[];
 }
 
@@ -54,6 +55,7 @@ export default function MoveExplanation({
   gameId,
   pgn,
   gameTitle,
+  analysis,
   analysisMoves,
 }: Props) {
   const { t } = useTranslation();
@@ -112,7 +114,8 @@ export default function MoveExplanation({
               ply: move.ply,
               userColor,
               gameTitle,
-              analysisMoves,
+              analysis,
+              analysisMoves: analysis?.moves ?? analysisMoves,
             }}
             className="btn-secondary w-full text-xs"
           >

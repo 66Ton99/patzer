@@ -504,6 +504,7 @@ export default function GameAnalyzer() {
                       gameId={gameId}
                       pgn={data.game.pgn}
                       gameTitle={`${data.game.white} vs ${data.game.black}`}
+                      analysis={analysis}
                       analysisMoves={analysis?.moves}
                     />
                   )}

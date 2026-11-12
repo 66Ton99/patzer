@@ -7,18 +7,22 @@ import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { Chess } from 'chess.js';
+import type { Key } from 'chessground/types';
 import {
   Microscope, RotateCcw, FlipVertical2, Wand2, Loader2, Swords,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles,
 } from 'lucide-react';
 import ChessBoard from '../components/ChessBoard';
 import EvalBar from '../components/EvalBar';
+import MoveList from '../components/MoveList';
+import EvalGraph from '../components/EvalGraph';
+import ClassificationBadge from '../components/ClassificationBadge';
 import ThreatPanel from '../components/ThreatPanel';
 import ExplorerPanel from '../components/ExplorerPanel';
 import { api } from '../api';
 import { useAuth } from '../state/auth';
 import { parseFromPosition, playFromPosition, playFromUrl } from '../lib/fromPosition';
-import type { AnalyzedMove } from '../types';
+import type { AnalysisResult, AnalyzedMove, KeyMomentSummary, PhaseSplit } from '../types';
 
 function safeDecodeFen(raw: string): string {
   if (!raw) return '';
@@ -60,6 +64,7 @@ interface LocationState {
   ply?: number;
   userColor?: 'white' | 'black' | null;
   gameTitle?: string;
+  analysis?: AnalysisResult | null;
   analysisMoves?: AnalyzedMove[];
 }
 
@@ -116,8 +121,6 @@ export default function Lab() {
   const searchFen = searchParams.get('fen');
   const initialFen = initialGame ? initialGame.targetFen : safeDecodeFen(hash || searchFen || '');
 
-  // instantiate a proper chess object to be referenced later, we skip validation for preloaded FENs
-  // as this often used to just manipulate a position, anarchy-chess style.
   const chess = initialFen ? new Chess(initialFen, { skipValidation: true }) : new Chess();
 
   // Authoritative game state lives in a ref to avoid stale closures.
@@ -134,6 +137,7 @@ export default function Lab() {
     initialGame?.userColor === 'black' ? 'black' : 'white'
   );
   const [gameTitle, setGameTitle] = useState<string | null>(initialGame?.gameTitle ?? null);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(state?.analysis ?? null);
   const [fenInput, setFenInput] = useState(initialFen);
   const [fenError, setFenError] = useState<string | null>(null);
 
@@ -148,13 +152,10 @@ export default function Lab() {
   const turn = chessRef.current.turn() === 'w' ? 'white' : 'black';
 
   // "Play from here": you play the side at the bottom of the board (the Play
-  // page lets you switch). A game from a position starts with white to move
-  // (server/src/chess/startFen.ts), so with black to move it starts one move
-  // earlier and replays the move you made here — when there is one.
+  // page lets you switch).
   const playFrom = useMemo(() => {
     const positions = [{ fen: startFenRef.current }, ...history.slice(0, historyIndex)];
     const from = playFromPosition(positions, historyIndex + 1);
-    // The Lab also takes made-up positions; only a legal, unfinished one plays.
     return from && parseFromPosition(from.fen, from.moves.join(',')) ? from : undefined;
   }, [history, historyIndex, tick]);
 
@@ -167,12 +168,13 @@ export default function Lab() {
   // Initial cache from pre-computed analysis if available
   const initialCache = useMemo(() => {
     const cache: Record<string, AnalyzeResponse> = {};
-    if (state?.analysisMoves) {
-      for (const m of state.analysisMoves) {
+    const moves = state?.analysis?.moves ?? state?.analysisMoves;
+    if (moves) {
+      for (const m of moves) {
         if (m.fen_after && (m.eval_after_cp != null || m.mate_after != null)) {
           cache[m.fen_after] = {
             fen: m.fen_after,
-            depth: 16,
+            depth: state?.analysis?.depth || 16,
             lines: m.best_move_san ? [{
               uci: m.best_move_uci ?? '',
               san: m.best_move_san,
@@ -206,7 +208,20 @@ export default function Lab() {
     gameLoadedRef.current = true;
     api.get<{
       game: { id: number; pgn: string; white: string; black: string; user_color: 'white' | 'black' | null };
-      analysis?: { depth: number; moves_json: string } | null;
+      analysis?: {
+        depth: number;
+        accuracy_white: number;
+        accuracy_black: number;
+        estimated_elo_white: number | null;
+        estimated_elo_black: number | null;
+        performance_white: number | null;
+        performance_black: number | null;
+        opening_eco: string | null;
+        opening_name: string | null;
+        key_moments_json: string | null;
+        phase_split_json: string | null;
+        moves_json: string;
+      } | null;
     }>(`/api/games/${gameIdParam}`)
       .then((data) => {
         if (!data?.game?.pgn) return;
@@ -225,13 +240,30 @@ export default function Lab() {
 
         if (data.analysis?.moves_json) {
           try {
-            const moves: AnalyzedMove[] = JSON.parse(data.analysis.moves_json);
+            const a = data.analysis;
+            const moves: AnalyzedMove[] = JSON.parse(a.moves_json);
+            const fullAnalysis: AnalysisResult = {
+              depth: a.depth,
+              accuracy_white: a.accuracy_white,
+              accuracy_black: a.accuracy_black,
+              estimated_elo_white: a.estimated_elo_white,
+              estimated_elo_black: a.estimated_elo_black,
+              performance_white: a.performance_white ?? null,
+              performance_black: a.performance_black ?? null,
+              opening_eco: a.opening_eco,
+              opening_name: a.opening_name,
+              key_moments: a.key_moments_json ? (JSON.parse(a.key_moments_json) as KeyMomentSummary[]) : [],
+              phase_split: a.phase_split_json ? (JSON.parse(a.phase_split_json) as PhaseSplit) : null,
+              moves,
+            };
+            setAnalysis(fullAnalysis);
+
             const cacheEntries: Record<string, AnalyzeResponse> = {};
             for (const m of moves) {
               if (m.fen_after && (m.eval_after_cp != null || m.mate_after != null)) {
                 cacheEntries[m.fen_after] = {
                   fen: m.fen_after,
-                  depth: data.analysis.depth || 16,
+                  depth: a.depth || 16,
                   lines: m.best_move_san ? [{
                     uci: m.best_move_uci ?? '',
                     san: m.best_move_san,
@@ -266,6 +298,7 @@ export default function Lab() {
         startFenRef.current = next.fen();
         setHistory([]);
         setHistoryIndex(0);
+        setAnalysis(null);
         setFenInput(decoded);
         setFenError(null);
         bump();
@@ -302,6 +335,7 @@ export default function Lab() {
     setHistory([]);
     setHistoryIndex(0);
     setGameTitle(null);
+    setAnalysis(null);
     analyze.reset();
     bump();
   }
@@ -320,6 +354,7 @@ export default function Lab() {
       setHistory([]);
       setHistoryIndex(0);
       setGameTitle(null);
+      setAnalysis(null);
       analyze.reset();
       setFenError(null);
       bump();
@@ -494,211 +529,286 @@ export default function Lab() {
     return [{ orig: best.uci.slice(0, 2), dest: best.uci.slice(2, 4), brush: 'paleBlue' as const }];
   }, [currentAnalysis]);
 
+  // Active move & board indicators matching /review
+  const currentHistoryEntry = historyIndex > 0 ? history[historyIndex - 1] : null;
+  const lastMove: [Key, Key] | undefined = currentHistoryEntry
+    ? [currentHistoryEntry.uci.slice(0, 2) as Key, currentHistoryEntry.uci.slice(2, 4) as Key]
+    : undefined;
+  const currentAnalyzedMove = analysis?.moves.find((m) => m.ply === historyIndex);
+  const currentDestSquare = currentHistoryEntry ? currentHistoryEntry.uci.slice(2, 4) : undefined;
+
+  // MoveList items
+  const movesForList = useMemo(() => {
+    return history.map((h, i) => {
+      const ply = i + 1;
+      const analyzed = analysis?.moves.find((m) => m.ply === ply);
+      return {
+        ply,
+        san: h.san,
+        classification: analyzed?.classification,
+      };
+    });
+  }, [history, analysis]);
+
+  // Eval graph data
+  const evalsForGraph = useMemo(() => {
+    if (analysis?.moves && analysis.moves.length > 0) {
+      return analysis.moves.map((m) => ({ ply: m.ply, cp: m.eval_after_cp }));
+    }
+    if (history.length > 0) {
+      const entries: { ply: number; cp: number | null }[] = [];
+      let hasAny = false;
+      for (let i = 0; i < history.length; i++) {
+        const ply = i + 1;
+        const cached = analysisCache[history[i].fen];
+        const cp = cached?.lines?.[0]?.cp ?? null;
+        if (cp != null) hasAny = true;
+        entries.push({ ply, cp });
+      }
+      return hasAny ? entries : [];
+    }
+    return [];
+  }, [analysis, history, analysisCache]);
+
+  const markersForGraph = useMemo(() => {
+    if (!analysis?.moves) return [];
+    return analysis.moves
+      .filter((m) => ['blunder', 'mistake', 'inaccuracy', 'miss', 'brilliant', 'great'].includes(m.classification))
+      .map((m) => ({ ply: m.ply, classification: m.classification }));
+  }, [analysis]);
+
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="page-h1 flex items-center gap-2">
-            <Microscope className="h-6 w-6 text-board-dark" />
-            {t('lab.title', { defaultValue: 'Lab' })}
-          </h1>
-          <p className="page-sub">
+    <div className="flex flex-col gap-4 lg:flex-row lg:gap-5 lg:h-[calc(100vh-6.5rem)] lg:overflow-hidden">
+      {/* BOARD PANE — Nothing above, nothing below, takes all available free space */}
+      <section className="flex flex-1 min-w-0 min-h-0 items-center justify-center">
+        <div className="flex w-full items-stretch justify-center gap-2 max-w-[calc(100vh-8rem)]">
+          <EvalBar
+            cp={evalCp}
+            mate={evalMate}
+            orientation={orientation}
+          />
+          <div
+            className={`relative aspect-square w-full min-w-0 flex-1 board-theme-${user?.profile.board_theme ?? 'green'}`}
+          >
+            <ChessBoard
+              key={tick === 0 ? 'init' : 'live'}
+              fen={fen}
+              orientation={orientation}
+              turnColor={turn}
+              movable
+              onMove={onMove}
+              lastMove={lastMove}
+              arrows={arrows as never}
+              resetKey={tick}
+            />
+            {currentAnalyzedMove && currentDestSquare && (
+              <ClassificationBadge
+                classification={currentAnalyzedMove.classification}
+                square={currentDestSquare}
+                orientation={orientation}
+              />
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* CONTROLS COLUMN — All controls reside exclusively in this right column */}
+      <aside className="w-full space-y-3 lg:w-[420px] lg:flex-initial lg:max-w-md lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+        {/* Header / Info card */}
+        <div className="card p-3 sm:p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Microscope className="h-5 w-5 text-board-dark" />
+              <h1 className="text-base font-bold text-chesscom-900 dark:text-chesscom-100">
+                {t('lab.title', { defaultValue: 'Lab' })}
+              </h1>
+            </div>
+            <div className="rounded-full bg-chesscom-100 px-2 py-0.5 text-xs font-medium text-chesscom-700 dark:bg-chesscom-800 dark:text-chesscom-300">
+              {turn === 'white'
+                ? t('lab.whiteToMove', { defaultValue: 'White to move' })
+                : t('lab.blackToMove', { defaultValue: 'Black to move' })}
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-chesscom-500 truncate" title={gameTitle ?? t('lab.subtitle', { defaultValue: 'A sandbox board with Stockfish on tap.' })}>
             {gameTitle ? gameTitle : t('lab.subtitle', { defaultValue: 'A sandbox board with Stockfish on tap.' })}
           </p>
         </div>
-        <div className="text-xs text-chesscom-500">
-          {turn === 'white'
-            ? t('lab.whiteToMove', { defaultValue: 'White to move' })
-            : t('lab.blackToMove', { defaultValue: 'Black to move' })}
-        </div>
-      </header>
 
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        {/* Board pane */}
-        <section className="space-y-3">
-          <div className="mx-auto flex w-full max-w-[calc(640px+26px)] items-stretch justify-center gap-2">
-            <EvalBar
-              cp={evalCp}
-              mate={evalMate}
-              orientation={orientation}
-            />
-            <div
-              className={`relative aspect-square w-full max-w-[640px] min-w-0 board-theme-${user?.profile.board_theme ?? 'green'}`}
-            >
-              <ChessBoard
-                key={tick === 0 ? 'init' : 'live'}
-                fen={fen}
-                orientation={orientation}
-                turnColor={turn}
-                movable
-                onMove={onMove}
-                arrows={arrows as never}
-                resetKey={tick}
-              />
+        {/* Moves & Review Navigation card */}
+        {history.length > 0 && (
+          <div className="card space-y-3 p-3">
+            {/* Stepper buttons matching /review */}
+            <div className="flex items-center justify-between gap-1 sm:gap-2">
+              <button
+                onClick={() => gotoPly(0)}
+                disabled={historyIndex === 0}
+                aria-label={t('review.first', { defaultValue: 'First' })}
+                className="btn-secondary h-9 w-9 p-0"
+                title={t('review.first', { defaultValue: 'First' })}
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => gotoPly(historyIndex - 1)}
+                disabled={historyIndex === 0}
+                aria-label={t('review.prev', { defaultValue: 'Previous' })}
+                className="btn-secondary h-9 w-9 p-0"
+                title={t('review.prev', { defaultValue: 'Previous' })}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => gotoPly(0)}
+                aria-label={t('lab.startPos', { defaultValue: 'Start' })}
+                className="flex h-9 flex-1 items-center justify-center rounded-xl bg-chesscom-100 px-3 text-xs font-mono font-semibold tabular-nums hover:bg-chesscom-200 dark:bg-chesscom-800 dark:hover:bg-chesscom-700"
+                title={t('lab.startPos', { defaultValue: 'Start' })}
+              >
+                {historyIndex === 0
+                  ? t('lab.startPos', { defaultValue: 'Start' })
+                  : `${historyIndex} / ${history.length}`}
+              </button>
+              <button
+                onClick={() => gotoPly(historyIndex + 1)}
+                disabled={historyIndex >= history.length}
+                aria-label={t('review.next', { defaultValue: 'Next' })}
+                className="btn-secondary h-9 w-9 p-0"
+                title={t('review.next', { defaultValue: 'Next' })}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => gotoPly(history.length)}
+                disabled={historyIndex >= history.length}
+                aria-label={t('review.last', { defaultValue: 'Last' })}
+                className="btn-secondary h-9 w-9 p-0"
+                title={t('review.last', { defaultValue: 'Last' })}
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </button>
             </div>
-          </div>
 
-          <div className="card space-y-2 p-3">
-            {/* Game Navigation Controls */}
-            {history.length > 0 && (
-              <div className="flex items-center justify-between gap-1 rounded-lg border border-chesscom-200 bg-chesscom-50/50 p-1.5 dark:border-chesscom-700 dark:bg-chesscom-900/40">
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => gotoPly(0)}
-                    disabled={historyIndex === 0}
-                    className="btn-ghost h-8 w-8 p-0"
-                    title={t('review.first', { defaultValue: 'First' })}
-                  >
-                    <ChevronsLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => gotoPly(historyIndex - 1)}
-                    disabled={historyIndex === 0}
-                    className="btn-ghost h-8 w-8 p-0"
-                    title={t('review.prev', { defaultValue: 'Previous' })}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="text-center font-mono text-xs font-semibold tabular-nums text-chesscom-800 dark:text-chesscom-100">
-                  {historyIndex === 0
-                    ? t('lab.startPos', { defaultValue: 'Start' })
-                    : `${historyIndex} / ${history.length}`}
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => gotoPly(historyIndex + 1)}
-                    disabled={historyIndex >= history.length}
-                    className="btn-ghost h-8 w-8 p-0"
-                    title={t('review.next', { defaultValue: 'Next' })}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => gotoPly(history.length)}
-                    disabled={historyIndex >= history.length}
-                    className="btn-ghost h-8 w-8 p-0"
-                    title={t('review.last', { defaultValue: 'Last' })}
-                  >
-                    <ChevronsRight className="h-4 w-4" />
-                  </button>
-                </div>
+            {/* Current move summary & eval */}
+            <div className="flex items-center justify-between rounded-lg bg-chesscom-50 px-3 py-2 text-xs dark:bg-chesscom-900/60">
+              <div className="min-w-0 truncate text-chesscom-500">
+                {currentHistoryEntry ? (
+                  <>
+                    <span className="font-medium text-chesscom-900 dark:text-chesscom-100">
+                      {historyIndex % 2 === 1 ? t('review.sideShort.white', { defaultValue: 'W' }) : t('review.sideShort.black', { defaultValue: 'B' })}: {currentHistoryEntry.san}
+                    </span>
+                    {currentAnalyzedMove?.best_move_san && currentAnalyzedMove.best_move_san !== currentHistoryEntry.san && (
+                      <span className="ml-2 text-[11px] text-chesscom-400">
+                        {t('review.best', { san: currentAnalyzedMove.best_move_san, defaultValue: `Best: ${currentAnalyzedMove.best_move_san}` })}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="italic">{t('review.startingPosition', { defaultValue: 'Starting position' })}</span>
+                )}
+              </div>
+              <div className="font-mono text-sm font-semibold tabular-nums">
+                {formatEval(evalCp, evalMate)}
+              </div>
+            </div>
+
+            {/* Eval graph if evals exist */}
+            {evalsForGraph.length > 0 && (
+              <div className="rounded-lg border border-chesscom-200 p-2 dark:border-chesscom-700">
+                <EvalGraph
+                  evals={evalsForGraph}
+                  current={historyIndex}
+                  onClick={(p) => gotoPly(p)}
+                  markers={markersForGraph}
+                  height={80}
+                />
               </div>
             )}
 
-            <div className="flex items-center gap-2">
-              <input
-                value={fenInput}
-                onChange={(e) => setFenInput(e.target.value)}
-                placeholder={t('lab.fenPlaceholder', { defaultValue: 'Paste a FEN…' })}
-                className="input flex-1 font-mono text-xs"
-                spellCheck={false}
-              />
-              <button onClick={setFromFen} className="btn-secondary text-sm">
-                {t('lab.setFen', { defaultValue: 'Set' })}
-              </button>
-            </div>
-            {fenError && <div className="text-xs text-mistake">{fenError}</div>}
-            <div className="flex flex-wrap items-center gap-2">
-              <button onClick={resetBoard} className="btn-ghost text-sm">
-                <RotateCcw className="h-4 w-4" />
-                {t('lab.reset', { defaultValue: 'Reset' })}
-              </button>
-              <button onClick={flip} className="btn-ghost text-sm">
-                <FlipVertical2 className="h-4 w-4" />
-                {t('lab.flip', { defaultValue: 'Flip board' })}
-              </button>
-              <div className="ml-auto font-mono text-[11px] tabular-nums text-chesscom-400">
-                {fen}
-              </div>
-            </div>
-            {playFrom ? (
-              <Link to={playFromUrl(playFrom, orientation)} className="btn-secondary w-full text-sm">
-                <Swords className="h-4 w-4" /> {t('lab.playFromHere', { defaultValue: 'Play from here against Patzer' })}
-              </Link>
-            ) : turn === 'black' ? (
-              <div className="flex items-center text-xs text-chesscom-500">{t('lab.playFromHint')}</div>
-            ) : null}
+            {/* MoveList from /review */}
+            <MoveList
+              moves={movesForList}
+              current={historyIndex}
+              onSelect={gotoPly}
+              phaseSplit={analysis?.phase_split}
+              maxHeight={260}
+            />
           </div>
-        </section>
+        )}
 
-        {/* Analysis pane */}
-        <aside className="space-y-3">
-          <div className="card p-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-chesscom-500">
-                {t('lab.engine', { defaultValue: 'Engine analysis' })}
-              </h2>
-              <div className="flex items-center gap-2">
-                {history.length > 0 && (
-                  isAnalyzingGame ? (
-                    <div className="flex items-center gap-2">
-                      <span className="flex items-center gap-1.5 text-xs text-chesscom-700 dark:text-chesscom-200">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        {t('lab.analyzingGame', { defaultValue: 'Analyzing…' })}
-                        {gameAnalysisProgress && (
-                          <span className="font-mono tabular-nums">
-                            ({gameAnalysisProgress.current}/{gameAnalysisProgress.total})
-                          </span>
-                        )}
-                      </span>
-                      <button
-                        onClick={stopAnalyzeGame}
-                        className="text-xs font-semibold text-mistake hover:underline"
-                      >
-                        {t('lab.stopAnalysis', { defaultValue: 'Stop' })}
-                      </button>
-                    </div>
-                  ) : (
+        {/* Engine Analysis card */}
+        <div className="card space-y-3 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-chesscom-500">
+              {t('lab.engine', { defaultValue: 'Engine analysis' })}
+            </h2>
+            <div className="flex items-center gap-2">
+              {history.length > 0 && (
+                isAnalyzingGame ? (
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1.5 text-xs text-chesscom-700 dark:text-chesscom-200">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      {t('lab.analyzingGame', { defaultValue: 'Analyzing…' })}
+                      {gameAnalysisProgress && (
+                        <span className="font-mono tabular-nums">
+                          ({gameAnalysisProgress.current}/{gameAnalysisProgress.total})
+                        </span>
+                      )}
+                    </span>
                     <button
-                      onClick={startAnalyzeGame}
-                      disabled={analyze.isPending}
-                      className="btn-secondary text-xs"
-                      title={t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}
+                      onClick={stopAnalyzeGame}
+                      className="text-xs font-semibold text-mistake hover:underline"
                     >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      <span>{t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}</span>
+                      {t('lab.stopAnalysis', { defaultValue: 'Stop' })}
                     </button>
-                  )
-                )}
-                <button
-                  onClick={() => analyze.mutate()}
-                  disabled={analyze.isPending || isAnalyzingGame}
-                  className="btn-primary text-sm"
-                >
-                  {analyze.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                  {analyze.isPending
-                    ? t('lab.analyzing', { defaultValue: 'Analyzing…' })
-                    : t('lab.analyze', { defaultValue: 'Analyze' })}
-                </button>
-              </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={startAnalyzeGame}
+                    disabled={analyze.isPending}
+                    className="btn-secondary text-xs"
+                    title={t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>{t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}</span>
+                  </button>
+                )
+              )}
+              <button
+                onClick={() => analyze.mutate()}
+                disabled={analyze.isPending || isAnalyzingGame}
+                className="btn-primary text-sm"
+              >
+                {analyze.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                {analyze.isPending
+                  ? t('lab.analyzing', { defaultValue: 'Analyzing…' })
+                  : t('lab.analyze', { defaultValue: 'Analyze' })}
+              </button>
             </div>
+          </div>
 
-            <div className="space-y-3">
-              <Slider
-                label={t('lab.depth', { defaultValue: 'Depth' })}
-                value={depth}
-                min={8}
-                max={22}
-                onChange={setDepth}
-              />
-              <Slider
-                label={t('lab.lines', { defaultValue: 'Lines' })}
-                value={lines}
-                min={1}
-                max={5}
-                onChange={setLines}
-              />
-            </div>
+          <div className="space-y-3">
+            <Slider
+              label={t('lab.depth', { defaultValue: 'Depth' })}
+              value={depth}
+              min={8}
+              max={22}
+              onChange={setDepth}
+            />
+            <Slider
+              label={t('lab.lines', { defaultValue: 'Lines' })}
+              value={lines}
+              min={1}
+              max={5}
+              onChange={setLines}
+            />
           </div>
 
           {analyze.isPending ? (
-            <div className="card flex items-center gap-2 p-4 text-sm text-chesscom-500">
+            <div className="flex items-center gap-2 py-2 text-sm text-chesscom-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               {t('lab.crunching', { defaultValue: 'Crunching positions…' })}
             </div>
           ) : currentAnalysis && currentAnalysis.lines.length > 0 ? (
-            <div className="card divide-y divide-chesscom-100 dark:divide-chesscom-700">
+            <div className="divide-y divide-chesscom-100 rounded-lg border border-chesscom-200 dark:divide-chesscom-700 dark:border-chesscom-700">
               {currentAnalysis.lines.map((line, i) => (
                 <LineRow key={i} line={line} rank={i + 1} onPlay={playLineMove} />
               ))}
@@ -707,97 +817,61 @@ export default function Lab() {
               </div>
             </div>
           ) : analyze.isError ? (
-            <div className="card p-4 text-sm text-mistake">
+            <div className="py-2 text-sm text-mistake">
               {t('lab.analyzeError', { defaultValue: 'Analysis failed. Is Stockfish configured?' })}
             </div>
           ) : (
-            <div className="card p-4 text-center text-sm text-chesscom-500">
+            <div className="py-2 text-center text-xs text-chesscom-500">
               {t('lab.idlePrompt', { defaultValue: 'Click Analyze to see what Stockfish thinks.' })}
             </div>
           )}
+        </div>
 
-          <ThreatPanel
-            fen={fen}
-            currentCpWhite={evalCp ?? 0}
-          />
-
-          <ExplorerPanel fen={fen} />
-
-          {history.length > 0 && (
-            <div className="card overflow-hidden">
-              <div className="flex items-center justify-between border-b border-chesscom-200 px-3 py-2 dark:border-chesscom-700">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-chesscom-500">
-                    {t('lab.moves', { defaultValue: 'Moves' })}
-                  </h2>
-                  <span className="text-[11px] text-chesscom-400">{history.length}</span>
-                </div>
-                {isAnalyzingGame ? (
-                  <button
-                    onClick={stopAnalyzeGame}
-                    className="text-xs font-medium text-mistake hover:underline"
-                  >
-                    {t('lab.stopAnalysis', { defaultValue: 'Stop' })}
-                  </button>
-                ) : (
-                  <button
-                    onClick={startAnalyzeGame}
-                    disabled={analyze.isPending}
-                    className="flex items-center gap-1 text-[11px] text-board-dark hover:underline"
-                  >
-                    <Sparkles className="h-3 w-3" />
-                    {t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}
-                  </button>
-                )}
-              </div>
-              <div className="max-h-60 overflow-y-auto p-2">
-                <button
-                  onClick={() => gotoPly(0)}
-                  aria-label={t('lab.startPos', { defaultValue: 'Start' })}
-                  className={`flex items-center justify-between w-full rounded px-2 py-1 text-left text-xs font-mono tabular-nums ${
-                    historyIndex === 0
-                      ? 'bg-gold-500/15 text-chesscom-900 dark:text-chesscom-100 font-semibold'
-                      : 'text-chesscom-500 hover:bg-chesscom-100/60 dark:hover:bg-chesscom-700/40'
-                  }`}
-                >
-                  <span>{t('lab.startPos', { defaultValue: 'Start' })}</span>
-                  {analysisCache[startFenRef.current]?.lines?.[0] && (
-                    <span className="text-[11px] text-chesscom-400 font-normal">
-                      {formatEval(analysisCache[startFenRef.current].lines[0].cp, analysisCache[startFenRef.current].lines[0].mate)}
-                    </span>
-                  )}
-                </button>
-                {history.map((h, i) => {
-                  const ply = i + 1;
-                  const moveNum = Math.ceil(ply / 2);
-                  const label = ply % 2 === 1 ? `${moveNum}. ${h.san}` : `${moveNum}… ${h.san}`;
-                  const isActive = historyIndex === ply;
-                  const cachedEval = analysisCache[h.fen];
-                  const line = cachedEval?.lines?.[0];
-                  const evalStr = line ? formatEval(line.cp, line.mate) : null;
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => gotoPly(ply)}
-                      aria-label={label}
-                      className={`flex items-center justify-between w-full rounded px-2 py-1 text-left text-xs font-mono tabular-nums ${
-                        isActive
-                          ? 'bg-gold-500/15 text-chesscom-900 dark:text-chesscom-100 font-semibold'
-                          : 'text-chesscom-600 hover:bg-chesscom-100/60 dark:text-chesscom-200 dark:hover:bg-chesscom-700/40'
-                      }`}
-                    >
-                      <span>{label}</span>
-                      {evalStr && (
-                        <span className="text-[11px] text-chesscom-400 font-normal">{evalStr}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+        {/* Board Tools & FEN card */}
+        <div className="card space-y-3 p-3 sm:p-4">
+          <div className="flex items-center gap-2">
+            <input
+              value={fenInput}
+              onChange={(e) => setFenInput(e.target.value)}
+              placeholder={t('lab.fenPlaceholder', { defaultValue: 'Paste a FEN…' })}
+              className="input flex-1 font-mono text-xs"
+              spellCheck={false}
+            />
+            <button onClick={setFromFen} className="btn-secondary text-xs">
+              {t('lab.setFen', { defaultValue: 'Set' })}
+            </button>
+          </div>
+          {fenError && <div className="text-xs text-mistake">{fenError}</div>}
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={resetBoard} className="btn-ghost text-xs">
+              <RotateCcw className="h-3.5 w-3.5" />
+              {t('lab.reset', { defaultValue: 'Reset' })}
+            </button>
+            <button onClick={flip} className="btn-ghost text-xs">
+              <FlipVertical2 className="h-3.5 w-3.5" />
+              {t('lab.flip', { defaultValue: 'Flip board' })}
+            </button>
+            <div className="ml-auto max-w-[180px] truncate font-mono text-[10px] tabular-nums text-chesscom-400" title={fen}>
+              {fen}
             </div>
-          )}
-        </aside>
-      </div>
+          </div>
+          {playFrom ? (
+            <Link to={playFromUrl(playFrom, orientation)} className="btn-secondary w-full text-xs">
+              <Swords className="h-3.5 w-3.5" /> {t('lab.playFromHere', { defaultValue: 'Play from here against Patzer' })}
+            </Link>
+          ) : turn === 'black' ? (
+            <div className="flex items-center text-xs text-chesscom-500">{t('lab.playFromHint')}</div>
+          ) : null}
+        </div>
+
+        {/* Side Panels */}
+        <ThreatPanel
+          fen={fen}
+          currentCpWhite={evalCp ?? 0}
+        />
+
+        <ExplorerPanel fen={fen} />
+      </aside>
     </div>
   );
 }

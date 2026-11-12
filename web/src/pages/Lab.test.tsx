@@ -359,5 +359,91 @@ describe('Lab position analysis bar (EvalBar)', () => {
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
     expect(screen.getByText('2 / 3')).toBeTruthy();
   });
+
+  it('renders full AnalysisResult from router state with MoveList, classification glyphs, and phase split', async () => {
+    post.mockResolvedValue({
+      fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3',
+      depth: 16,
+      lines: [],
+    });
+
+    const mockAnalysis = {
+      depth: 16,
+      accuracy_white: 85.5,
+      accuracy_black: 78.2,
+      estimated_elo_white: 1600,
+      estimated_elo_black: 1550,
+      performance_white: 1620,
+      performance_black: 1530,
+      opening_eco: 'C44',
+      opening_name: "King's Knight Opening",
+      key_moments: [],
+      phase_split: {
+        opening: { from_ply: 1, to_ply: 4 },
+        middlegame: { from_ply: 5, to_ply: 10 },
+      },
+      moves: [
+        {
+          ply: 1,
+          san: 'e4',
+          uci: 'e2e4',
+          classification: 'book',
+          eval_after_cp: 20,
+          fen_after: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+        },
+        {
+          ply: 2,
+          san: 'e5',
+          uci: 'e7e5',
+          classification: 'best',
+          eval_after_cp: 15,
+          fen_after: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2',
+        },
+        {
+          ply: 3,
+          san: 'Nf3',
+          uci: 'g1f3',
+          classification: 'great',
+          eval_after_cp: 30,
+          best_move_san: 'Nf3',
+          fen_after: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2',
+        },
+        {
+          ply: 4,
+          san: 'Nc6',
+          uci: 'b8c6',
+          classification: 'inaccuracy',
+          eval_after_cp: 45,
+          fen_after: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3',
+        },
+      ],
+    };
+
+    renderLab({
+      pathname: '/lab',
+      state: {
+        pgn: '1. e4 e5 2. Nf3 Nc6',
+        ply: 3,
+        analysis: mockAnalysis,
+      },
+    });
+
+    // MoveList has White and Black headers
+    expect(screen.getByText('review.white')).toBeTruthy();
+    expect(screen.getByText('review.black')).toBeTruthy();
+
+    // Check phase split rendered in MoveList
+    expect(screen.getByText('review.opening')).toBeTruthy();
+
+    // Moves e4, e5, Nf3, Nc6 are displayed in MoveList
+    expect(screen.getByRole('button', { name: 'e4' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'e5' })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Nf3' })[0]).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Nc6' })).toBeTruthy();
+
+    // Clicking move in MoveList navigates to that ply
+    fireEvent.click(screen.getByRole('button', { name: 'e4' }));
+    expect(screen.getByText('1 / 4')).toBeTruthy();
+  });
 });
 
