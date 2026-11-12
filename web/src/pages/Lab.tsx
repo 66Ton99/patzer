@@ -68,7 +68,7 @@ interface LocationState {
   analysisMoves?: AnalyzedMove[];
 }
 
-function parseGamePgn(pgn: string): { startFen: string; history: HistoryEntry[] } {
+function parseGamePgn(pgn: string): { startFen: string; history: HistoryEntry[]; title?: string } {
   try {
     const chess = new Chess();
     chess.loadPgn(pgn, { strict: false });
@@ -85,7 +85,13 @@ function parseGamePgn(pgn: string): { startFen: string; history: HistoryEntry[] 
         uci: m.from + m.to + (m.promotion ?? ''),
       });
     }
-    return { startFen, history: historyEntries };
+    let title: string | undefined;
+    if (headers.White || headers.Black) {
+      title = `${headers.White ?? 'White'} vs ${headers.Black ?? 'Black'}`;
+    } else if (headers.Event && headers.Event !== '?') {
+      title = headers.Event;
+    }
+    return { startFen, history: historyEntries, title };
   } catch {
     return { startFen: new Chess().fen(), history: [] };
   }
@@ -355,6 +361,8 @@ export default function Lab() {
   function setFromFen() {
     const trimmed = fenInput.trim();
     if (!trimmed) return;
+
+    // 1. Try as standard FEN first
     try {
       const test = new Chess(trimmed);
       chessRef.current = test;
@@ -366,8 +374,43 @@ export default function Lab() {
       analyze.reset();
       setFenError(null);
       bump();
+      return;
+    } catch {
+      // Not a pure FEN, try as PGN / move text
+    }
+
+    // 2. Try as PGN / move text
+    try {
+      const { startFen, history: entries, title } = parseGamePgn(trimmed);
+      if (entries.length > 0) {
+        const replay = new Chess(entries[entries.length - 1].fen, { skipValidation: true });
+        chessRef.current = replay;
+        startFenRef.current = startFen;
+        setHistory(entries);
+        setHistoryIndex(entries.length);
+        setFenInput(entries[entries.length - 1].fen);
+        setGameTitle(title ?? null);
+        setAnalysis(null);
+        analyze.reset();
+        setFenError(null);
+        bump();
+        return;
+      } else if (startFen && startFen !== new Chess().fen()) {
+        const test = new Chess(startFen);
+        chessRef.current = test;
+        startFenRef.current = test.fen();
+        setHistory([]);
+        setHistoryIndex(0);
+        setGameTitle(null);
+        setAnalysis(null);
+        analyze.reset();
+        setFenError(null);
+        bump();
+        return;
+      }
+      throw new Error(t('lab.invalidFenOrPgn', { defaultValue: 'Invalid FEN or PGN' }));
     } catch (e) {
-      setFenError(e instanceof Error ? e.message : t('lab.invalidFen', { defaultValue: 'Invalid FEN' }));
+      setFenError(e instanceof Error ? e.message : t('lab.invalidFenOrPgn', { defaultValue: 'Invalid FEN or PGN' }));
     }
   }
 
@@ -807,36 +850,40 @@ export default function Lab() {
               {t('lab.engine', { defaultValue: 'Engine analysis' })}
             </h2>
             <div className="flex items-center gap-2">
-              {history.length > 0 && (
-                isAnalyzingGame ? (
-                  <div className="flex items-center gap-2">
-                    <span className="flex items-center gap-1.5 text-xs text-chesscom-700 dark:text-chesscom-200">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      {t('lab.analyzingGame', { defaultValue: 'Analyzing…' })}
-                      {gameAnalysisProgress && (
-                        <span className="font-mono tabular-nums">
-                          ({gameAnalysisProgress.current}/{gameAnalysisProgress.total})
-                        </span>
-                      )}
-                    </span>
-                    <button
-                      onClick={stopAnalyzeGame}
-                      className="text-xs font-semibold text-mistake hover:underline"
-                    >
-                      {t('lab.stopAnalysis', { defaultValue: 'Stop' })}
-                    </button>
-                  </div>
-                ) : (
+              {isAnalyzingGame ? (
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 text-xs text-chesscom-700 dark:text-chesscom-200">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    {t('lab.analyzingGame', { defaultValue: 'Analyzing…' })}
+                    {gameAnalysisProgress && (
+                      <span className="font-mono tabular-nums">
+                        ({gameAnalysisProgress.current}/{gameAnalysisProgress.total})
+                      </span>
+                    )}
+                  </span>
                   <button
-                    onClick={startAnalyzeGame}
-                    disabled={analyze.isPending}
-                    className="btn-secondary text-xs"
-                    title={t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}
+                    onClick={stopAnalyzeGame}
+                    className="text-xs font-semibold text-mistake hover:underline"
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    <span>{t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}</span>
+                    {t('lab.stopAnalysis', { defaultValue: 'Stop' })}
                   </button>
-                )
+                </div>
+              ) : (
+                <button
+                  onClick={startAnalyzeGame}
+                  disabled={history.length === 0 || analyze.isPending}
+                  className="btn-secondary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    history.length === 0
+                      ? t('lab.noMovesToAnalyze', {
+                          defaultValue: 'No moves to analyze (FEN has only 1 position. Paste a PGN or make moves on the board).',
+                        })
+                      : t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })
+                  }
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>{t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })}</span>
+                </button>
               )}
               <button
                 onClick={() => analyze.mutate()}
@@ -899,7 +946,7 @@ export default function Lab() {
             <input
               value={fenInput}
               onChange={(e) => setFenInput(e.target.value)}
-              placeholder={t('lab.fenPlaceholder', { defaultValue: 'Paste a FEN…' })}
+              placeholder={t('lab.fenPlaceholder', { defaultValue: 'Paste a FEN or PGN…' })}
               className="input flex-1 font-mono text-xs"
               spellCheck={false}
             />

@@ -111,7 +111,7 @@ describe('Lab position analysis bar (EvalBar)', () => {
     });
 
     renderLab();
-    const fenInput = screen.getByPlaceholderText('Paste a FEN…');
+    const fenInput = screen.getByPlaceholderText(/Paste a FEN/i);
     fireEvent.change(fenInput, { target: { value: fenBlackToMove } });
     fireEvent.click(screen.getByRole('button', { name: 'Set' }));
 
@@ -148,7 +148,7 @@ describe('Lab position analysis bar (EvalBar)', () => {
     const foolsMate = 'rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3';
     renderLab();
 
-    const fenInput = screen.getByPlaceholderText('Paste a FEN…');
+    const fenInput = screen.getByPlaceholderText(/Paste a FEN/i);
     fireEvent.change(fenInput, { target: { value: foolsMate } });
     fireEvent.click(screen.getByRole('button', { name: 'Set' }));
 
@@ -169,7 +169,7 @@ describe('Lab position analysis bar (EvalBar)', () => {
     const stalemateFen = 'k7/8/1Q6/8/8/8/8/7K b - - 0 1';
     renderLab();
 
-    const fenInput = screen.getByPlaceholderText('Paste a FEN…');
+    const fenInput = screen.getByPlaceholderText(/Paste a FEN/i);
     fireEvent.change(fenInput, { target: { value: stalemateFen } });
     fireEvent.click(screen.getByRole('button', { name: 'Set' }));
 
@@ -533,6 +533,47 @@ describe('Lab position analysis bar (EvalBar)', () => {
     fireEvent.click(prevBtn);
     expect(screen.getByText('1 / 4')).toBeTruthy();
     expect(screen.getByText('+0.2')).toBeTruthy();
+  });
+
+  it('keeps "Analyze whole game" button visible and disabled when only a FEN is loaded', async () => {
+    renderLab('/lab');
+
+    const analyzeGameBtn = screen.getByRole('button', { name: /Analyze whole game/i }) as HTMLButtonElement;
+    expect(analyzeGameBtn).toBeTruthy();
+    expect(analyzeGameBtn.disabled).toBe(true);
+    expect(analyzeGameBtn.title).toContain('No moves to analyze');
+
+    // Setting another FEN
+    const input = screen.getByPlaceholderText(/Paste a FEN or PGN/i);
+    const setBtn = screen.getByRole('button', { name: 'Set' });
+    fireEvent.change(input, {
+      target: { value: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3' },
+    });
+    fireEvent.click(setBtn);
+
+    // Button is still visible and disabled because history has 0 moves
+    expect(analyzeGameBtn.disabled).toBe(true);
+    expect(analyzeGameBtn.title).toContain('No moves to analyze');
+  });
+
+  it('supports pasting PGN into the input to load game moves and enables whole game analysis', async () => {
+    renderLab('/lab');
+
+    const input = screen.getByPlaceholderText(/Paste a FEN or PGN/i);
+    const setBtn = screen.getByRole('button', { name: 'Set' });
+
+    // Paste a PGN string
+    fireEvent.change(input, {
+      target: { value: '[White "Magnus"]\n[Black "Hikaru"]\n1. e4 e5 2. Nf3 Nc6' },
+    });
+    fireEvent.click(setBtn);
+
+    // Moves and title should now be loaded
+    expect(screen.getByText('Magnus vs Hikaru')).toBeTruthy();
+    expect(screen.getByText('4 / 4')).toBeTruthy();
+
+    const analyzeGameBtn = screen.getByRole('button', { name: /Analyze whole game/i }) as HTMLButtonElement;
+    expect(analyzeGameBtn.disabled).toBe(false);
   });
 });
 
