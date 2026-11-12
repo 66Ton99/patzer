@@ -430,10 +430,120 @@ export default function Lab() {
   }
 
   async function startAnalyzeGame() {
-    if (history.length === 0 || isAnalyzingGame) return;
+    if (isAnalyzingGame) return;
     setIsAnalyzingGame(true);
     abortAnalysisRef.current = false;
 
+    // Case 1: history is empty (pasted FEN or starting position without moves)
+    // Analyze from current position to the end of the game with Stockfish
+    if (history.length === 0) {
+      const simChess = new Chess(fen, { skipValidation: true });
+      const currentMoveNum = parseInt(fen.split(' ')[5] || '1', 10) || 1;
+      const isBlackFirst = fen.split(' ')[1] === 'b';
+
+      const newEntries: HistoryEntry[] = [];
+      const maxPlies = 100;
+      let count = 0;
+
+      setGameAnalysisProgress({
+        current: 1,
+        total: 0,
+        currentMove: currentMoveNum,
+        totalMoves: 0,
+      });
+
+      try {
+        // Evaluate starting position if not already in cache
+        if (!analysisCache[fen] || analysisCache[fen].depth < depth) {
+          try {
+            const startRes = await api.post<AnalyzeResponse>('/api/analyze/position', {
+              fen,
+              depth,
+              lines,
+            });
+            setAnalysisCache((prev) => ({ ...prev, [startRes.fen]: startRes }));
+          } catch {
+            // continue
+          }
+        }
+
+        while (!abortAnalysisRef.current && count < maxPlies) {
+          if (simChess.isGameOver()) break;
+
+          const currentFen = simChess.fen();
+          let res = analysisCache[currentFen];
+
+          if (!res || res.depth < depth || !res.lines || res.lines.length === 0) {
+            let attempts = 0;
+            while (attempts < 3 && !res && !abortAnalysisRef.current) {
+              try {
+                attempts++;
+                res = await api.post<AnalyzeResponse>('/api/analyze/position', {
+                  fen: currentFen,
+                  depth,
+                  lines: Math.max(lines, 1),
+                });
+                setAnalysisCache((prev) => ({ ...prev, [res.fen]: res }));
+              } catch (err: unknown) {
+                const maybeStatus = (err as { status?: number })?.status;
+                const maybeMsg = (err as { message?: string })?.message;
+                if (maybeStatus === 429 || (maybeMsg && maybeMsg.includes('already_analyzing'))) {
+                  await new Promise((r) => setTimeout(r, 200));
+                } else {
+                  break;
+                }
+              }
+            }
+          }
+
+          if (abortAnalysisRef.current || !res || !res.lines || res.lines.length === 0) break;
+
+          const bestLine = res.lines[0];
+          const from = bestLine.uci.slice(0, 2);
+          const to = bestLine.uci.slice(2, 4);
+          const promotion = bestLine.uci.length === 5 ? bestLine.uci[4] : undefined;
+
+          let move;
+          try {
+            move = simChess.move({ from, to, promotion } as never);
+          } catch {
+            break;
+          }
+          if (!move) break;
+
+          count++;
+          const nextFen = simChess.fen();
+          newEntries.push({
+            fen: nextFen,
+            san: move.san,
+            uci: move.from + move.to + (move.promotion ?? ''),
+          });
+
+          const pliesFromStart = isBlackFirst ? count + 1 : count;
+          const currentMove = currentMoveNum + Math.floor(pliesFromStart / 2);
+
+          setGameAnalysisProgress({
+            current: count + 1,
+            total: 0,
+            currentMove,
+            totalMoves: 0,
+          });
+        }
+
+        if (newEntries.length > 0) {
+          setHistory(newEntries);
+          // CRITICAL: Keep board on starting position — do NOT play moves on the board!
+          setHistoryIndex(0);
+          bump();
+        }
+      } finally {
+        setIsAnalyzingGame(false);
+        setGameAnalysisProgress(null);
+      }
+      return;
+    }
+
+    // Case 2: history.length > 0 (existing game history)
     // Collect all positions in game: 0 = start, 1..N = after each move
     const positionsList: { index: number; fen: string }[] = [
       { index: 0, fen: startFenRef.current },
@@ -877,7 +987,9 @@ export default function Lab() {
                     {t('lab.analyzingGame', { defaultValue: 'Analyzing…' })}
                     {gameAnalysisProgress && (
                       <span className="font-mono tabular-nums">
-                        ({gameAnalysisProgress.currentMove}/{gameAnalysisProgress.totalMoves})
+                        {gameAnalysisProgress.totalMoves > 0
+                          ? `(${gameAnalysisProgress.currentMove}/${gameAnalysisProgress.totalMoves})`
+                          : `(${t('lab.moveNum', { num: gameAnalysisProgress.currentMove, defaultValue: `хід ${gameAnalysisProgress.currentMove}` })})`}
                       </span>
                     )}
                   </span>
@@ -891,13 +1003,11 @@ export default function Lab() {
               ) : (
                 <button
                   onClick={startAnalyzeGame}
-                  disabled={history.length === 0 || analyze.isPending}
+                  disabled={analyze.isPending || isAnalyzingGame}
                   className="btn-secondary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                   title={
                     history.length === 0
-                      ? t('lab.noMovesToAnalyze', {
-                          defaultValue: 'No moves to analyze (FEN has only 1 position. Paste a PGN or make moves on the board).',
-                        })
+                      ? t('lab.analyzeToEnd', { defaultValue: 'Analyze to the end' })
                       : t('lab.analyzeGame', { defaultValue: 'Analyze whole game' })
                   }
                 >

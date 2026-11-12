@@ -535,13 +535,18 @@ describe('Lab position analysis bar (EvalBar)', () => {
     expect(screen.getByText('+0.2')).toBeTruthy();
   });
 
-  it('keeps "Analyze whole game" button visible and disabled when only a FEN is loaded', async () => {
+  it('keeps "Analyze whole game" button enabled when only a FEN is loaded, analyzing to the end without auto-playing moves on the board', async () => {
+    post.mockResolvedValue({
+      fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3',
+      depth: 12,
+      lines: [{ uci: 'f1b5', san: 'Bb5', pv_san: ['Bb5', 'a6'], cp: 25, mate: null, multipv: 1 }],
+    });
+
     renderLab('/lab');
 
     const analyzeGameBtn = screen.getByRole('button', { name: /Analyze whole game/i }) as HTMLButtonElement;
     expect(analyzeGameBtn).toBeTruthy();
-    expect(analyzeGameBtn.disabled).toBe(true);
-    expect(analyzeGameBtn.title).toContain('No moves to analyze');
+    expect(analyzeGameBtn.disabled).toBe(false);
 
     // Setting a FEN
     const input = screen.getByPlaceholderText(/Paste a FEN or PGN/i);
@@ -551,9 +556,19 @@ describe('Lab position analysis bar (EvalBar)', () => {
     });
     fireEvent.click(setBtn);
 
-    // Button is still visible and disabled because history has 0 moves
-    expect(analyzeGameBtn.disabled).toBe(true);
-    expect(analyzeGameBtn.title).toContain('No moves to analyze');
+    // Button is still enabled and title explains it analyzes to the end
+    expect(analyzeGameBtn.disabled).toBe(false);
+    expect(analyzeGameBtn.title).toContain('Analyze to the end');
+
+    // Click "Analyze whole game"
+    await act(async () => {
+      fireEvent.click(analyzeGameBtn);
+    });
+
+    // History now contains generated continuation move Bb5
+    expect(screen.getAllByRole('button', { name: 'Bb5' }).length).toBeGreaterThanOrEqual(1);
+    // But the board stays at start (historyIndex 0), no moves were auto-played
+    expect(screen.getByText('Start')).toBeTruthy();
   });
 
   it('supports pasting PGN into the input to load game moves and enables whole game analysis with move-based progress', async () => {

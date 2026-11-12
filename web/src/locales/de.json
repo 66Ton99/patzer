@@ -1091,6 +1091,8 @@
     "playFromHint": "Ab hier spielen geht, wenn Weiß am Zug ist – oder direkt nach einem Zug, den du hier im Lab gemacht hast.",
     "analyzeGame": "Ganze Partie analysieren",
     "analyzingGame": "Partie wird analysiert…",
+    "analyzeToEnd": "Bis zum Ende analysieren",
+    "moveNum": "Zug {{num}}",
     "stopAnalysis": "Stopp",
     "gameAnalysisDone": "Partieanalyse abgeschlossen"
   },
