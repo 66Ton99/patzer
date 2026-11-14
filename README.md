@@ -284,6 +284,7 @@ All user-facing configuration is done **through the UI** and persisted in SQLite
 | `ENGINE_BACKEND` | `local` | `chessapi` sends Game Review positions to the hosted chess-api.com engine instead of the bundled Stockfish (opt-in — for a Pi or a public demo instance) |
 | `CHESSCOM_SYNC_MINUTES` | `15` | How often linked Chess.com accounts are synced, analyzed and reviewed in the background; `0` turns the timer off |
 | `DEEPSEEK_API_KEY` | (none) | DeepSeek key for the coach; wins over the key saved in *Admin → System* (handy with Docker secrets) |
+| `GEMINI_API_KEY` | (none) | Google AI Studio (Gemini) key for the coach; wins over the key saved in *Admin → System* (handy with Docker secrets) |
 | `PUBLIC_BASE_URL` | (request origin) | Public address of the app, e.g. `https://chess.example.com`. Used for links in emails and the SSO callback; set it behind a reverse proxy. *Admin → System → Public base URL* wins when set |
 
 **Single sign-on** ([full guide](docs/OIDC.md)) is off until `OIDC_ISSUER` and `OIDC_CLIENT_ID` are set:

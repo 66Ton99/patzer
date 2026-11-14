@@ -49,4 +49,52 @@ describe('Admin → System → model', () => {
     expect(screen.getByText('LM Studio-URL')).toBeDefined();
     expect(screen.getByText('LM Studio-Modell')).toBeDefined();
   });
+
+  it('switches to Google Gemini provider tab with correct placeholders and AI Studio link', async () => {
+    renderPage();
+    const tab = await screen.findByRole('button', { name: 'Google Gemini' });
+    fireEvent.click(tab);
+    expect(await screen.findByPlaceholderText('https://generativelanguage.googleapis.com/v1beta/openai')).toBeDefined();
+    expect(screen.getByText('Google Gemini-URL (optional)')).toBeDefined();
+    expect(screen.getByText('Gemini-Modell')).toBeDefined();
+    expect(screen.getByText('Google AI Studio-API-Schlüssel')).toBeDefined();
+    const link = screen.getByRole('link', { name: /Google AI Studio/ });
+    expect(link.getAttribute('href')).toBe('https://aistudio.google.com/');
+  });
+
+  it('passes typed Gemini API key to test connection endpoint', async () => {
+    renderPage();
+    const tab = await screen.findByRole('button', { name: 'Google Gemini' });
+    fireEvent.click(tab);
+
+    const keyInput = await screen.findByPlaceholderText('AIza…');
+    fireEvent.change(keyInput, { target: { value: 'AIzaSyTestKey123' } });
+
+    const testButtons = screen.getAllByRole('button', { name: 'Testen' });
+    // First test button is next to URL input
+    fireEvent.click(testButtons[0]!);
+
+    expect(post).toHaveBeenCalledWith(
+      '/api/admin/test/ollama',
+      expect.objectContaining({
+        provider: 'gemini',
+        api_key: 'AIzaSyTestKey123',
+      }),
+    );
+  });
+
+  it('shows localized error message when Gemini API key is missing', async () => {
+    post.mockImplementation(async (path: string) => path === '/api/admin/test/ollama'
+      ? { ok: false, error: 'gemini_api_key_missing' }
+      : { ok: true });
+
+    renderPage();
+    const tab = await screen.findByRole('button', { name: 'Google Gemini' });
+    fireEvent.click(tab);
+
+    const testButtons = screen.getAllByRole('button', { name: 'Testen' });
+    fireEvent.click(testButtons[0]!);
+
+    expect(await screen.findByText('Google Gemini-API-Schlüssel ist erforderlich. Gib deinen Schlüssel ein oder speichere ihn zuerst.')).toBeDefined();
+  });
 });

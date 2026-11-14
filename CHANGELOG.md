@@ -130,6 +130,12 @@ right one. Three of them did.
 Regression tests pin all three on the position that produced them (French
 advance, 7.Be2), including the engine line whose middle ply was the player's.
 
+## [7.20.2] — 2026-11-14
+
+### Fixed
+- **Duplicate colon in Ukrainian move explanation.** Fixed redundant trailing colon in `uk.json` (`line: "Лінія рушія"`) to prevent double colons in Game Review (`Лінія рушія::`).
+- **Gemini AI Coach default model.** Updated default Gemini model to `gemini-3.5-flash` in `llm.ts` and System Admin settings, replacing deprecated `gemini-2.5-flash`.
+
 ## [7.20.1] — 2026-10-30
 
 ### Changed

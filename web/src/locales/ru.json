@@ -587,7 +587,16 @@
     "deepseekKey": "API-ключ DeepSeek",
     "deepseekKeyEnv": "Ключ задан переменной окружения DEEPSEEK_API_KEY — это поле игнорируется.",
     "deepseekKeySaved": "Ключ сохранён. Введи новый, чтобы заменить его, или оставь поле пустым, чтобы сохранить текущий.",
-    "deepseekKeyHint": "Хранится в настройках этого сервера. Сохрани перед проверкой подключения.",
+    "deepseekKeyHint": "Сохраняется в настройках этого сервера. Нажмите «Сохранить» внизу, чтобы применить.",
+    "deepseekKeyMissing": "Требуется API-ключ DeepSeek. Введите ключ или сначала сохраните его.",
+    "geminiUrl": "URL Google Gemini (необязательно)",
+    "geminiModel": "Модель Gemini",
+    "geminiKey": "API-ключ Google AI Studio",
+    "geminiKeyEnv": "Ключ задан переменной окружения GEMINI_API_KEY — это поле игнорируется.",
+    "geminiKeySaved": "Ключ сохранён. Введи новый, чтобы заменить его, или оставь поле пустым, чтобы сохранить текущий.",
+    "geminiKeyHint": "Сохраняется в настройках этого сервера. Нажмите «Сохранить» внизу, чтобы применить.",
+    "geminiKeyMissing": "Требуется API-ключ Google Gemini. Введите ключ или сначала сохраните его.",
+    "getGeminiKey": "Получить API-ключ в Google AI Studio",
     "engineBackendNote": "По умолчанию разбор партий использует встроенный локальный Stockfish. Чтобы использовать удалённый движок chess-api.com, задай <code>ENGINE_BACKEND=chessapi</code> (переменная окружения) или настройку <code>engine_backend</code> — например, для публичного демосервера (DEMO_MODE, #27)."
   },
   "palette": {

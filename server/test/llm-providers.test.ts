@@ -23,6 +23,7 @@ import { join } from 'node:path';
 const dir = mkdtempSync(join(tmpdir(), 'patzer-llm-'));
 process.env.DB_PATH = join(dir, 'llm.db');
 const DEEPSEEK_KEY = 'sk-test-123';
+const GEMINI_KEY = 'AIza-test-gemini-key';
 
 type LlmModule = typeof import('../src/coach/llm.js');
 type Router = { request: (path: string, init?: RequestInit) => Response | Promise<Response> };
@@ -31,7 +32,7 @@ interface Seen { method: string; path: string; auth?: string; body?: Record<stri
 
 interface Fake { url: string; seen: Seen[]; server: Server }
 
-const MODEL = { ollama: 'gemma3:1b', vllm: 'Qwen3-8B', deepseek: 'deepseek-chat', lmstudio: 'qwen2.5-7b-instruct' } as const;
+const MODEL = { ollama: 'gemma3:1b', vllm: 'Qwen3-8B', deepseek: 'deepseek-chat', lmstudio: 'qwen2.5-7b-instruct', gemini: 'gemini-3.5-flash' } as const;
 
 function readBody(req: IncomingMessage): Promise<Record<string, unknown> | undefined> {
   return new Promise((resolve) => {
@@ -64,7 +65,7 @@ function openAiChat(res: ServerResponse, body: Record<string, unknown> | undefin
   json(res, 200, { choices: [{ message: { content: jsonMode ? '{"summary":"ok"}' : 'OK' } }] });
 }
 
-async function startFake(kind: 'ollama' | 'vllm' | 'deepseek' | 'lmstudio'): Promise<Fake> {
+async function startFake(kind: 'ollama' | 'vllm' | 'deepseek' | 'lmstudio' | 'gemini'): Promise<Fake> {
   const seen: Seen[] = [];
   const server = createServer(async (req, res) => {
     const body = await readBody(req);
@@ -100,6 +101,12 @@ async function startFake(kind: 'ollama' | 'vllm' | 'deepseek' | 'lmstudio'): Pro
       if (req.method === 'POST' && path === '/chat/completions') return openAiChat(res, body);
     }
 
+    if (kind === 'gemini') {
+      if (req.headers.authorization !== `Bearer ${GEMINI_KEY}`) return json(res, 401, { error: { message: 'API key not valid' } });
+      if (req.method === 'GET' && path === '/models') return json(res, 200, { object: 'list', data: [{ id: `models/${MODEL.gemini}` }] });
+      if (req.method === 'POST' && path === '/chat/completions') return openAiChat(res, body);
+    }
+
     json(res, 404, { detail: 'Not Found' });
   });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
@@ -111,14 +118,14 @@ let llm: LlmModule;
 let setSetting: (k: string, v: string) => void;
 let admin: Router;
 let adminCookie: string;
-const fakes = {} as Record<'ollama' | 'vllm' | 'deepseek' | 'lmstudio', Fake>;
+const fakes = {} as Record<'ollama' | 'vllm' | 'deepseek' | 'lmstudio' | 'gemini', Fake>;
 
 // Every spelling of the same server a user might paste into Admin → System.
 function spellings(base: string): string[] {
   return [base, `${base}/`, `${base}/v1`, `${base}/v1/`];
 }
 
-function useProvider(p: 'ollama' | 'vllm' | 'deepseek' | 'lmstudio', url: string): void {
+function useProvider(p: 'ollama' | 'vllm' | 'deepseek' | 'lmstudio' | 'gemini', url: string): void {
   setSetting('llm_provider', p);
   setSetting(`${p}_url`, url);
   setSetting(`${p}_model`, MODEL[p]);
@@ -129,6 +136,7 @@ beforeAll(async () => {
   fakes.vllm = await startFake('vllm');
   fakes.lmstudio = await startFake('lmstudio');
   fakes.deepseek = await startFake('deepseek');
+  fakes.gemini = await startFake('gemini');
   const dbm = await import('../src/db.js');
   setSetting = dbm.setSetting;
   llm = await import('../src/coach/llm.js');
@@ -148,6 +156,7 @@ afterAll(async () => {
 beforeEach(() => {
   for (const f of Object.values(fakes)) f.seen.length = 0;
   process.env.DEEPSEEK_API_KEY = DEEPSEEK_KEY;
+  process.env.GEMINI_API_KEY = GEMINI_KEY;
 });
 
 const paths = (f: Fake) => f.seen.map((s) => `${s.method} ${s.path}`);
@@ -177,6 +186,11 @@ describe('openAiRoot', () => {
     expect(llm.openAiRoot('https://api.deepseek.com', 'deepseek')).toBe('https://api.deepseek.com');
     expect(llm.openAiRoot('https://api.deepseek.com/', 'deepseek')).toBe('https://api.deepseek.com');
     expect(llm.openAiRoot('https://api.deepseek.com/v1', 'deepseek')).toBe('https://api.deepseek.com/v1');
+  });
+
+  it('leaves the Gemini root as typed', () => {
+    expect(llm.openAiRoot('https://generativelanguage.googleapis.com/v1beta/openai', 'gemini')).toBe('https://generativelanguage.googleapis.com/v1beta/openai');
+    expect(llm.openAiRoot('https://generativelanguage.googleapis.com/v1beta/openai/', 'gemini')).toBe('https://generativelanguage.googleapis.com/v1beta/openai');
   });
 });
 
@@ -332,6 +346,64 @@ describe('DeepSeek', () => {
   });
 });
 
+describe('Gemini', () => {
+  it('lists models from /models with the Bearer key and strips models/ prefix', async () => {
+    const r = await llm.testConnection(fakes.gemini.url, 'gemini');
+    expect(r).toEqual({ ok: true, models: [{ name: MODEL.gemini, size: 0 }] });
+    expect(paths(fakes.gemini)).toEqual(['GET /models']);
+    expect(fakes.gemini.seen[0]!.auth).toBe(`Bearer ${GEMINI_KEY}`);
+  });
+
+  it('refuses to test without a key, and never calls out', async () => {
+    delete process.env.GEMINI_API_KEY;
+    setSetting('gemini_api_key', '');
+    const r = await llm.testConnection(fakes.gemini.url, 'gemini');
+    expect(r).toEqual({ ok: false, error: 'gemini_api_key_missing' });
+    expect(fakes.gemini.seen).toHaveLength(0);
+  });
+
+  it('accepts an explicit apiKey parameter when no env var or setting is set', async () => {
+    delete process.env.GEMINI_API_KEY;
+    setSetting('gemini_api_key', '');
+    const r = await llm.testConnection(fakes.gemini.url, 'gemini', GEMINI_KEY);
+    expect(r.ok).toBe(true);
+  });
+
+  it('falls back to the key saved in settings when the env var is unset', async () => {
+    delete process.env.GEMINI_API_KEY;
+    setSetting('gemini_api_key', GEMINI_KEY);
+    const r = await llm.testConnection(fakes.gemini.url, 'gemini');
+    expect(r.ok).toBe(true);
+    setSetting('gemini_api_key', '');
+  });
+
+  it('tests a model on /chat/completions without vLLM-only fields', async () => {
+    const r = await llm.testModel(`${fakes.gemini.url}/`, MODEL.gemini, 5000, 'gemini');
+    expect(r).toMatchObject({ ok: true, sample: 'OK' });
+    const req = fakes.gemini.seen[0]!;
+    expect(`${req.method} ${req.path}`).toBe('POST /chat/completions');
+    expect(req.auth).toBe(`Bearer ${GEMINI_KEY}`);
+    expect(req.body).not.toHaveProperty('chat_template_kwargs');
+  });
+
+  it('streams the coach and writes JSON reviews', async () => {
+    useProvider('gemini', fakes.gemini.url);
+    let text = '';
+    await llm.chatStream([{ role: 'user', content: 'hi' }], (t) => { text += t; });
+    expect(text).toBe('Develop your knight.');
+    expect(await llm.chatJson([{ role: 'user', content: 'review' }])).toEqual({ summary: 'ok' });
+    expect(paths(fakes.gemini).filter((p) => p.startsWith('POST'))).toEqual(['POST /chat/completions', 'POST /chat/completions']);
+  });
+
+  it('counts as configured only with a key', () => {
+    useProvider('gemini', '');
+    expect(llm.llmConfigured()).toBe(true);
+    expect(llm.llmUrl()).toBe('https://generativelanguage.googleapis.com/v1beta/openai');
+    delete process.env.GEMINI_API_KEY;
+    expect(llm.llmConfigured()).toBe(false);
+  });
+});
+
 describe('Ollama', () => {
   for (const spell of ['', '/']) {
     it(`lists, tests, streams and reviews on its native routes (<server>${spell})`, async () => {
@@ -359,13 +431,17 @@ describe('switching providers keeps each one\'s settings', () => {
     setSetting('ollama_url', fakes.ollama.url);
     setSetting('vllm_url', `${fakes.vllm.url}/`);
     setSetting('lmstudio_url', `${fakes.lmstudio.url}/`);
+    setSetting('gemini_url', `${fakes.gemini.url}/`);
     setSetting('ollama_model', MODEL.ollama);
     setSetting('vllm_model', MODEL.vllm);
     setSetting('lmstudio_model', MODEL.lmstudio);
+    setSetting('gemini_model', MODEL.gemini);
     setSetting('llm_provider', 'vllm');
     expect([llm.llmUrl(), llm.llmModel()]).toEqual([fakes.vllm.url, MODEL.vllm]);
     setSetting('llm_provider', 'lmstudio');
     expect([llm.llmUrl(), llm.llmModel()]).toEqual([fakes.lmstudio.url, MODEL.lmstudio]);
+    setSetting('llm_provider', 'gemini');
+    expect([llm.llmUrl(), llm.llmModel()]).toEqual([fakes.gemini.url, MODEL.gemini]);
     setSetting('llm_provider', 'ollama');
     expect([llm.llmUrl(), llm.llmModel()]).toEqual([fakes.ollama.url, MODEL.ollama]);
   });
@@ -402,10 +478,25 @@ describe('Admin → System test buttons', () => {
     });
   }
 
-  it('"Test ALL models" works for Ollama and DeepSeek', async () => {
+  it('"Test ALL models" works for Ollama, DeepSeek and Gemini', async () => {
     const o = await post('/test/ollama-models', { url: fakes.ollama.url, provider: 'ollama' });
     expect(o.body).toMatchObject({ ok: true, results: [{ model: MODEL.ollama, ok: true }] });
     const d = await post('/test/ollama-models', { url: fakes.deepseek.url, provider: 'deepseek' });
     expect(d.body).toMatchObject({ ok: true, results: [{ model: MODEL.deepseek, ok: true }] });
+    const g = await post('/test/ollama-models', { url: fakes.gemini.url, provider: 'gemini' });
+    expect(g.body).toMatchObject({ ok: true, results: [{ model: MODEL.gemini, ok: true }] });
+  });
+
+  it('supports passing api_key in request body without saving first', async () => {
+    delete process.env.GEMINI_API_KEY;
+    setSetting('gemini_api_key', '');
+    const missing = await post('/test/ollama', { url: fakes.gemini.url, provider: 'gemini' });
+    expect(missing.body).toMatchObject({ ok: false, error: 'gemini_api_key_missing' });
+
+    const withKey = await post('/test/ollama', { url: fakes.gemini.url, provider: 'gemini', api_key: GEMINI_KEY });
+    expect(withKey.body).toMatchObject({ ok: true, models: [{ name: MODEL.gemini }] });
+
+    const allWithKey = await post('/test/ollama-models', { url: fakes.gemini.url, provider: 'gemini', api_key: GEMINI_KEY });
+    expect(allWithKey.body).toMatchObject({ ok: true, results: [{ model: MODEL.gemini, ok: true }] });
   });
 });

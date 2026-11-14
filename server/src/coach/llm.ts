@@ -1,6 +1,6 @@
 import { getSetting } from '../db.js';
 
-export type LlmProvider = 'ollama' | 'vllm' | 'deepseek' | 'lmstudio';
+export type LlmProvider = 'ollama' | 'vllm' | 'deepseek' | 'lmstudio' | 'gemini';
 
 // Reasoning models (Qwen3 and friends) emit a chain-of-thought that isn't
 // part of `content` but does eat into `max_tokens`, so a tight budget leaves
@@ -14,6 +14,11 @@ const VLLM_NO_THINK = { chat_template_kwargs: { enable_thinking: false } };
 // URL has a sensible default and the API key is the real "configured" signal.
 const DEEPSEEK_BASE = 'https://api.deepseek.com';
 
+// Google AI Studio (Gemini) provides an official OpenAI-compatible endpoint.
+// Like DeepSeek, its URL defaults to the official endpoint and the API key
+// from https://aistudio.google.com/ is the real "configured" signal.
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/openai';
+
 export interface LlmModel { name: string; size: number; details?: { parameter_size?: string } }
 
 export function llmProvider(): LlmProvider {
@@ -21,6 +26,7 @@ export function llmProvider(): LlmProvider {
   if (p === 'vllm') return 'vllm';
   if (p === 'deepseek') return 'deepseek';
   if (p === 'lmstudio') return 'lmstudio';
+  if (p === 'gemini') return 'gemini';
   return 'ollama';
 }
 
@@ -30,25 +36,33 @@ export function deepseekApiKey(): string | null {
   return process.env.DEEPSEEK_API_KEY || getSetting('deepseek_api_key') || null;
 }
 
-// Ollama, vLLM, LM Studio and DeepSeek are configured independently (own URL + model
+// Google AI Studio (Gemini) API key — env wins (Docker secrets), DB setting as fallback.
+// Never returned to the client; the admin surface only reports whether one is set.
+export function geminiApiKey(): string | null {
+  return process.env.GEMINI_API_KEY || getSetting('gemini_api_key') || null;
+}
+
+// Ollama, vLLM, LM Studio, DeepSeek and Gemini are configured independently (own URL + model
 // each), so switching the provider toggle doesn't clobber whichever one you
 // aren't currently using — e.g. an Ollama box for quick local models, a vLLM
-// server for a bigger one, LM Studio for local desktop inference, and DeepSeek
-// for a cloud model, configured once each.
+// server for a bigger one, LM Studio for local desktop inference, DeepSeek
+// or Google Gemini for a cloud model, configured once each.
 export function llmUrl(): string | null {
   const p = llmProvider();
   const url = p === 'vllm' ? getSetting('vllm_url')
     : p === 'deepseek' ? (getSetting('deepseek_url') || DEEPSEEK_BASE)
+    : p === 'gemini' ? (getSetting('gemini_url') || GEMINI_BASE)
     : p === 'lmstudio' ? getSetting('lmstudio_url')
     : getSetting('ollama_url');
   return url ? url.replace(/\/$/, '') : null;
 }
 
-// Whether the currently-selected LLM is actually usable. For DeepSeek the URL
+// Whether the currently-selected LLM is actually usable. For DeepSeek and Gemini the URL
 // always resolves to a default, so the API key is what makes it "configured";
-// the other two are configured once they have a URL.
+// the other providers are configured once they have a URL.
 export function llmConfigured(): boolean {
   if (llmProvider() === 'deepseek') return !!deepseekApiKey();
+  if (llmProvider() === 'gemini') return !!geminiApiKey();
   return !!llmUrl();
 }
 
@@ -56,6 +70,7 @@ export function llmModel(): string {
   const p = llmProvider();
   if (p === 'vllm') return getSetting('vllm_model') || '';
   if (p === 'deepseek') return getSetting('deepseek_model') || 'deepseek-chat';
+  if (p === 'gemini') return getSetting('gemini_model') || 'gemini-3.5-flash';
   if (p === 'lmstudio') return getSetting('lmstudio_model') || '';
   return getSetting('ollama_model') || 'gemma3:1b';
 }
@@ -89,18 +104,18 @@ export function llmStats(): { count: number; p95Ms: number | null; lastError: st
 let lastError: string | null = null;
 let lastModelUsed: string | null = null;
 
-// OpenAI-compatible providers (vLLM, LM Studio, DeepSeek) speak the same dialect; these
+// OpenAI-compatible providers (vLLM, LM Studio, DeepSeek, Gemini) speak the same dialect; these
 // helpers centralize the two places they differ — where the API root is and
-// the auth header (DeepSeek needs a Bearer key, vLLM/LM Studio are usually unauthenticated).
+// the auth header (DeepSeek and Gemini need a Bearer key, vLLM/LM Studio are usually unauthenticated).
 //
 // The vLLM / LM Studio URL is the bare server (`http://host:8000` or `http://localhost:1234`)
 // and its routes live under `/v1` — for models *and* chat. 7.15.0 dropped the `/v1` from the model
 // list, which broke "Test" on every existing vLLM setup, and adding `/v1` to
 // the URL as a workaround then broke chat (`/v1/v1/…`). A URL that already
 // ends in `/v1` is accepted, since that is how OpenAI base URLs are usually
-// written. DeepSeek's URL is already the API root. server/test/llm-providers
+// written. DeepSeek and Gemini URLs are already the API root. server/test/llm-providers
 // pins every route.
-type OpenAiLike = 'vllm' | 'deepseek' | 'lmstudio';
+type OpenAiLike = 'vllm' | 'deepseek' | 'lmstudio' | 'gemini';
 export function openAiRoot(url: string, provider: OpenAiLike): string {
   const base = url.replace(/\/+$/, '');
   return (provider === 'vllm' || provider === 'lmstudio') ? `${base.replace(/\/v1$/, '')}/v1` : base;
@@ -108,28 +123,38 @@ export function openAiRoot(url: string, provider: OpenAiLike): string {
 function openAiEndpoint(base: string, provider: OpenAiLike, path: 'models' | 'chat/completions' = 'chat/completions'): string {
   return `${openAiRoot(base, provider)}/${path}`;
 }
-function openAiHeaders(provider: OpenAiLike): Record<string, string> {
+function openAiHeaders(provider: OpenAiLike, apiKey?: string): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (provider === 'deepseek') h.Authorization = `Bearer ${deepseekApiKey() ?? ''}`;
+  const key = apiKey || (provider === 'gemini' ? geminiApiKey() : provider === 'deepseek' ? deepseekApiKey() : null);
+  if (key) h.Authorization = `Bearer ${key}`;
   return h;
 }
 
 /** List models available on the configured host, normalized across providers.
  *  Ollama exposes its native `/api/tags`; vLLM (`/v1/models`), LM Studio
- *  (`/v1/models`) and DeepSeek (`/models`) expose the OpenAI-compatible list
+ *  (`/v1/models`), DeepSeek (`/models`) and Gemini (`/models`) expose the OpenAI-compatible list
  *  (one entry per served model). */
-export async function testConnection(url: string, provider: LlmProvider = llmProvider()): Promise<{ ok: true; models: LlmModel[] } | { ok: false; error: string }> {
+export async function testConnection(url: string, provider: LlmProvider = llmProvider(), apiKey?: string): Promise<{ ok: true; models: LlmModel[] } | { ok: false; error: string }> {
   const base = url.replace(/\/$/, '');
   try {
-    if (provider === 'vllm' || provider === 'deepseek' || provider === 'lmstudio') {
-      if (provider === 'deepseek' && !deepseekApiKey()) return { ok: false, error: 'deepseek_api_key_missing' };
+    if (provider === 'vllm' || provider === 'deepseek' || provider === 'lmstudio' || provider === 'gemini') {
+      const key = apiKey || (provider === 'gemini' ? geminiApiKey() : provider === 'deepseek' ? deepseekApiKey() : null);
+      if (provider === 'deepseek' && !key) return { ok: false, error: 'deepseek_api_key_missing' };
+      if (provider === 'gemini' && !key) return { ok: false, error: 'gemini_api_key_missing' };
       const res = await fetch(openAiEndpoint(base, provider, 'models'), {
-        headers: provider === 'deepseek' ? { Authorization: `Bearer ${deepseekApiKey() ?? ''}` } : undefined,
+        headers: (provider === 'deepseek' || provider === 'gemini') ? { Authorization: `Bearer ${key ?? ''}` } : undefined,
         signal: AbortSignal.timeout(8000),
       });
-      if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const errData = (await res.json()) as { error?: { message?: string } };
+          if (errData?.error?.message) msg = `${msg}: ${errData.error.message}`;
+        } catch {}
+        return { ok: false, error: msg };
+      }
       const data = (await res.json()) as { data?: { id: string }[] };
-      return { ok: true, models: (data.data ?? []).map((m) => ({ name: m.id, size: 0 })) };
+      return { ok: true, models: (data.data ?? []).map((m) => ({ name: m.id.replace(/^models\//, ''), size: 0 })) };
     }
     const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
@@ -149,7 +174,8 @@ export async function ensureModel(model: string): Promise<boolean> {
   if (!url) return false;
   const res = await testConnection(url);
   if (!res.ok) return false;
-  const ok = res.models.some((m) => m.name === model || m.name.split(':')[0] === model.split(':')[0]);
+  const norm = (s: string) => s.replace(/^models\//, '');
+  const ok = res.models.some((m) => norm(m.name) === norm(model) || norm(m.name).split(':')[0] === norm(model).split(':')[0]);
   if (ok) verifiedModels.add(model);
   return ok;
 }
@@ -199,7 +225,7 @@ export async function chatStream(messages: ChatMessage[], onChunk: (text: string
   bumpIdle();
 
   try {
-    if (provider === 'vllm' || provider === 'deepseek' || provider === 'lmstudio') {
+    if (provider === 'vllm' || provider === 'deepseek' || provider === 'lmstudio' || provider === 'gemini') {
       const body: Record<string, unknown> = {
         model, messages, stream: true,
         temperature: opts.temperature ?? 0.3,
@@ -321,7 +347,7 @@ export async function chatJson<T = unknown>(
   const timer = setTimeout(() => ac.abort(new Error('llm_hard_timeout')), timeoutMs);
   try {
     let raw: string;
-    if (provider === 'vllm' || provider === 'deepseek' || provider === 'lmstudio') {
+    if (provider === 'vllm' || provider === 'deepseek' || provider === 'lmstudio' || provider === 'gemini') {
       const body: Record<string, unknown> = {
         model, messages, stream: false,
         response_format: { type: 'json_object' },
@@ -396,11 +422,11 @@ export async function chatJsonRetry<T = unknown>(
 }
 
 // Quick smoke test of a single model — sends a tiny prompt and reports timing.
-export async function testModel(url: string, model: string, timeoutMs = 30_000, provider: LlmProvider = llmProvider()): Promise<{ ok: boolean; latencyMs: number; sample?: string; error?: string }> {
+export async function testModel(url: string, model: string, timeoutMs = 30_000, provider: LlmProvider = llmProvider(), apiKey?: string): Promise<{ ok: boolean; latencyMs: number; sample?: string; error?: string }> {
   const base = url.replace(/\/$/, '');
   const start = Date.now();
   try {
-    if (provider === 'vllm' || provider === 'deepseek' || provider === 'lmstudio') {
+    if (provider === 'vllm' || provider === 'deepseek' || provider === 'lmstudio' || provider === 'gemini') {
       const body: Record<string, unknown> = {
         model,
         messages: [{ role: 'user', content: 'Reply with exactly the word OK and nothing else.' }],
@@ -410,12 +436,19 @@ export async function testModel(url: string, model: string, timeoutMs = 30_000, 
       if (provider === 'vllm') Object.assign(body, VLLM_NO_THINK);
       const res = await fetch(openAiEndpoint(base, provider), {
         method: 'POST',
-        headers: openAiHeaders(provider),
+        headers: openAiHeaders(provider, apiKey),
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(timeoutMs),
       });
       const latencyMs = Date.now() - start;
-      if (!res.ok) return { ok: false, latencyMs, error: `HTTP ${res.status}` };
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const errData = (await res.json()) as { error?: { message?: string } };
+          if (errData?.error?.message) msg = `${msg}: ${errData.error.message}`;
+        } catch {}
+        return { ok: false, latencyMs, error: msg };
+      }
       const data = await res.json() as { choices?: { message?: { content?: string } }[]; error?: { message?: string } };
       if (data.error) return { ok: false, latencyMs, error: data.error.message };
       const sample = (data.choices?.[0]?.message?.content ?? '').trim().slice(0, 80);
