@@ -33,6 +33,7 @@ const explainSchema = z.object({
 });
 
 router.post('/explain', async (c) => {
+  if (!llmConfigured()) return c.json({ error: 'llm_not_configured' }, 503);
   const user = c.get('user');
   const body = await c.req.json().catch(() => null);
   const parsed = explainSchema.safeParse(body);
@@ -42,6 +43,13 @@ router.post('/explain', async (c) => {
   const { language: _l, audience: _a, ...params } = parsed.data;
 
   return streamSSE(c, async (stream) => {
+    const keepalive = setInterval(async () => {
+      try {
+        await stream.writeSSE({ event: 'ping', data: '' });
+      } catch {
+        // stream may be closed
+      }
+    }, 5000);
     try {
       // Generated in full and checked against the verdict before it is sent
       // (see coach/explain.ts), so it arrives in one piece, not token by token.
@@ -53,6 +61,8 @@ router.post('/explain', async (c) => {
       await stream.writeSSE({ data: answer.text });
     } catch (err) {
       await stream.writeSSE({ event: 'error', data: err instanceof Error ? err.message : String(err) });
+    } finally {
+      clearInterval(keepalive);
     }
     await stream.writeSSE({ event: 'done', data: '' });
   });
@@ -66,6 +76,7 @@ const hintReqSchema = z.object({
 });
 
 router.post('/hint', async (c) => {
+  if (!llmConfigured()) return c.json({ error: 'llm_not_configured' }, 503);
   const user = c.get('user');
   const body = await c.req.json().catch(() => null);
   const parsed = hintReqSchema.safeParse(body);

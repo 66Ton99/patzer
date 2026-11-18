@@ -9,6 +9,11 @@ export type LlmProvider = 'ollama' | 'vllm' | 'deepseek' | 'lmstudio' | 'gemini'
 // to the tokenizer's chat template; non-thinking models/templates ignore it.
 const VLLM_NO_THINK = { chat_template_kwargs: { enable_thinking: false } };
 
+// Google AI Studio (Gemini) OpenAI-compatible endpoint supports reasoning_effort
+// to control reasoning on thinking models (Gemini 2.5). Setting "none" disables thinking
+// so thinking tokens don't eat into tight num_predict budgets.
+const GEMINI_NO_THINK = { reasoning_effort: 'none' };
+
 // DeepSeek is a hosted OpenAI-compatible API. It's the "cloud LLM" option
 // alongside local Ollama / self-hosted vLLM. Unlike the local providers, its
 // URL has a sensible default and the API key is the real "configured" signal.
@@ -203,7 +208,7 @@ interface ChatOpts {
 // Streams response chunks. Calls `onChunk` per token batch.
 // Hard timeout (default 120s) and idle timeout (default 30s) ensure silent
 // failures (model loading forever, network hung) become loud errors.
-export async function chatStream(messages: ChatMessage[], onChunk: (text: string) => void, opts: ChatOpts = {}): Promise<void> {
+export async function chatStream(messages: ChatMessage[], onChunk: (text: string) => void | Promise<void>, opts: ChatOpts = {}): Promise<void> {
   if (!llmConfigured()) throw new Error('llm_not_configured');
   const url = llmUrl()!;
   const provider = llmProvider();
@@ -233,6 +238,7 @@ export async function chatStream(messages: ChatMessage[], onChunk: (text: string
         max_tokens: opts.numPredict ?? 220,
       };
       if (provider === 'vllm') Object.assign(body, VLLM_NO_THINK);
+      if (provider === 'gemini') Object.assign(body, GEMINI_NO_THINK);
       const res = await fetch(openAiEndpoint(url, provider), {
         method: 'POST',
         headers: openAiHeaders(provider),
@@ -259,7 +265,7 @@ export async function chatStream(messages: ChatMessage[], onChunk: (text: string
             const obj = JSON.parse(payload) as { choices?: { delta?: { content?: string } }[]; error?: { message?: string } };
             if (obj.error) throw new Error(`llm_${obj.error.message ?? 'error'}`);
             const text = obj.choices?.[0]?.delta?.content;
-            if (text) onChunk(text);
+            if (text) await onChunk(text);
           } catch (err) {
             if ((err as Error).message?.startsWith('llm_')) throw err;
             // ignore malformed JSON lines
@@ -305,7 +311,7 @@ export async function chatStream(messages: ChatMessage[], onChunk: (text: string
             const obj = JSON.parse(line) as { message?: { content?: string }; done?: boolean; error?: string };
             if (obj.error) throw new Error(`llm_${obj.error}`);
             const text = obj.message?.content;
-            if (text) onChunk(text);
+            if (text) await onChunk(text);
           } catch (err) {
             if ((err as Error).message?.startsWith('llm_')) throw err;
             // ignore malformed JSON lines
@@ -355,6 +361,7 @@ export async function chatJson<T = unknown>(
         max_tokens: opts.numPredict ?? 1500,
       };
       if (provider === 'vllm') Object.assign(body, VLLM_NO_THINK);
+      if (provider === 'gemini') Object.assign(body, GEMINI_NO_THINK);
       const res = await fetch(openAiEndpoint(url, provider), {
         method: 'POST',
         headers: openAiHeaders(provider),
@@ -434,6 +441,7 @@ export async function testModel(url: string, model: string, timeoutMs = 30_000, 
         temperature: 0.1,
       };
       if (provider === 'vllm') Object.assign(body, VLLM_NO_THINK);
+      if (provider === 'gemini') Object.assign(body, GEMINI_NO_THINK);
       const res = await fetch(openAiEndpoint(base, provider), {
         method: 'POST',
         headers: openAiHeaders(provider, apiKey),

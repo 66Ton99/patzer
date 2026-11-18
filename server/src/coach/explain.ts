@@ -76,14 +76,27 @@ export async function coachExplain(
   const sys = systemPrompt(aud, lang);
   const usr = explainMovePrompt(input, lang, aud, coaching.facts);
 
-  const first = clean(await generate(sys, usr, opts));
+  let first = "";
+  try {
+    first = clean(await generate(sys, usr, opts));
+  } catch (err) {
+    if (opts.signal?.aborted) throw err;
+    console.warn(`[coach] generate failed, falling back to facts: ${(err as Error).message}`);
+    return { text: fallbackText(coaching.facts, lang), actions: coaching.actions, source: "fallback" };
+  }
   if (first && !contradiction(first, params.classification, lang)) {
     return { text: first, actions: coaching.actions, source: "llm" };
   }
   const verdict = String(coaching.facts.verdict ?? "");
   console.warn(`[coach] answer contradicted the verdict (${params.classification}); retrying`);
   const retryPrompt = explainMovePrompt(input, lang, aud, coaching.facts, correctionNote(lang, verdict));
-  const second = clean(await generate(sys, retryPrompt, { ...opts, temperature: 0.05 }));
+  let second = "";
+  try {
+    second = clean(await generate(sys, retryPrompt, { ...opts, temperature: 0.05 }));
+  } catch (err) {
+    if (opts.signal?.aborted) throw err;
+    console.warn(`[coach] retry failed: ${(err as Error).message}`);
+  }
   if (second && !contradiction(second, params.classification, lang)) {
     return { text: second, actions: coaching.actions, source: "llm_retry" };
   }

@@ -19,5 +19,6 @@ describe('parseSseBlock', () => {
     expect(actions).toEqual({ event: 'actions', data: '[{"kind":"train"}]' });
     expect(parseSseBlock('event: error\ndata: llm_http_500').event).toBe('error');
     expect(parseSseBlock('event: done\ndata: ').event).toBe('done');
+    expect(parseSseBlock('event: ping\ndata: ').event).toBe('ping');
   });
 });

@@ -377,21 +377,33 @@ describe('Gemini', () => {
     setSetting('gemini_api_key', '');
   });
 
-  it('tests a model on /chat/completions without vLLM-only fields', async () => {
+  it('tests a model on /chat/completions with reasoning_effort none and without vLLM-only fields', async () => {
     const r = await llm.testModel(`${fakes.gemini.url}/`, MODEL.gemini, 5000, 'gemini');
     expect(r).toMatchObject({ ok: true, sample: 'OK' });
     const req = fakes.gemini.seen[0]!;
     expect(`${req.method} ${req.path}`).toBe('POST /chat/completions');
     expect(req.auth).toBe(`Bearer ${GEMINI_KEY}`);
     expect(req.body).not.toHaveProperty('chat_template_kwargs');
+    expect(req.body).toMatchObject({ reasoning_effort: 'none' });
   });
 
-  it('streams the coach and writes JSON reviews', async () => {
+  it('streams the coach and writes JSON reviews with reasoning_effort none', async () => {
     useProvider('gemini', fakes.gemini.url);
+    const order: number[] = [];
     let text = '';
-    await llm.chatStream([{ role: 'user', content: 'hi' }], (t) => { text += t; });
+    await llm.chatStream([{ role: 'user', content: 'hi' }], async (t) => {
+      order.push(1);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      text += t;
+      order.push(2);
+    });
     expect(text).toBe('Develop your knight.');
+    expect(order).toEqual([1, 2, 1, 2, 1, 2]);
+    const postReqs = fakes.gemini.seen.filter((s) => s.method === 'POST');
+    expect(postReqs[0]?.body).toMatchObject({ reasoning_effort: 'none' });
     expect(await llm.chatJson([{ role: 'user', content: 'review' }])).toEqual({ summary: 'ok' });
+    const postReqsAfter = fakes.gemini.seen.filter((s) => s.method === 'POST');
+    expect(postReqsAfter[1]?.body).toMatchObject({ reasoning_effort: 'none' });
     expect(paths(fakes.gemini).filter((p) => p.startsWith('POST'))).toEqual(['POST /chat/completions', 'POST /chat/completions']);
   });
 

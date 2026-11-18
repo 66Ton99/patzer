@@ -92,7 +92,9 @@ export default function CoachPanel({ systemConfigured, request, autoPlay, trigge
         signal: ac.signal,
       });
       if (!res.ok || !res.body) {
-        setError(`HTTP ${res.status}`); setBusy(false); return;
+        setError(res.status === 503 ? t('coach.notConfigured') : t('coach.error'));
+        setBusy(false);
+        return;
       }
       const reader = res.body.getReader();
       const dec = new TextDecoder();
@@ -112,12 +114,12 @@ export default function CoachPanel({ systemConfigured, request, autoPlay, trigge
           } else if (event === 'actions') {
             try { setActions(JSON.parse(data) as CoachAction[]); } catch { /* ignore */ }
           } else if (event === 'error') {
-            setError(t('coach.error'));
+            setError(data === 'llm_not_configured' ? t('coach.notConfigured') : t('coach.error'));
           }
         }
       }
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') setError((e as Error).message);
+      if ((e as Error).name !== 'AbortError') setError(t('coach.error'));
     } finally {
       setBusy(false);
       if (autoPlay && acc.trim() && user?.profile.tts_enabled && !mutedRef.current) {
