@@ -6,6 +6,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Google AI Studio (Gemini) as a coach provider
+
+- **Gemini joins Ollama, LM Studio, vLLM and DeepSeek** in *Admin → System*. Its URL defaults to Google's
+  OpenAI-compatible endpoint, so an API key from [Google AI Studio](https://aistudio.google.com/) is all it
+  takes; `GEMINI_API_KEY` wins over the saved key, the way DeepSeek's already does. The model list is
+  filtered to the chat-capable models, since Google's `/models` answers with the whole catalogue —
+  embeddings, Imagen, Veo, TTS and live models included.
+- **Thinking is off by default** (`GEMINI_REASONING_EFFORT`, or the picker in *Admin → System*). Hidden
+  reasoning is charged against the same token budget as the answer, and the coach's is deliberately small,
+  so a thinking model would spend it before saying anything. Gemini 2.5 Pro and the 3.x / 4.x models can't
+  turn thinking off at all: there Patzer asks for the lowest level Google accepts and widens the budget to
+  leave room for it.
+- **"Test ALL models" says what it will cost first.** It still tests every model the host serves — on
+  DeepSeek and Gemini that is a paid call each, up to 30 seconds per model, so it now asks before
+  starting and names how many models that is.
+- Coach chunks are now written to the browser one at a time. The streaming callback was never awaited, so
+  an answer could reach the page out of order — and an error writing to a browser that had gone away was
+  swallowed, leaving the model generating until the hard timeout.
+- An error reply that carries no `message` field (a bare string, or just a code) is reported instead of
+  being read as an empty answer, which had the game review quietly re-sending the whole prompt.
+
 ### Tactical training: The Woodpecker Method
 
 - **Cyclic tactical pattern training.** Full implementation of spaced-repetition
